@@ -9,7 +9,11 @@ public class IrohProxyApp extends Application {
 
     public ProxyController getProxyController() {
         if (proxyController == null) {
-            proxyController = new ProxyController(this);
+            synchronized (this) {
+                if (proxyController == null) {
+                    proxyController = new ProxyController(this);
+                }
+            }
         }
         return proxyController;
     }

@@ -18,24 +18,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import su.weavedwires.iroh.vpn.error.NativeError;
+import su.weavedwires.iroh.vpn.error.NativeErrorListener;
 import su.weavedwires.iroh.vpn.R;
 
 public class ProxyController {
-
-    public interface ProxyListener {
-        void onProcessExited(int code, String error);
-    }
-
+    private static final String TAG = ProxyController.class.getSimpleName();
     private final Context context;
     private final AtomicBoolean running = new AtomicBoolean(false);
-    private final ExecutorService monitorExecutor =
-            Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r, "iroh-monitor");
-                t.setDaemon(true);
-                return t;
-            });
-    private volatile String lastError;
-    private volatile ProxyListener listener;
+    private final ExecutorService monitorExecutor = Executors.newSingleThreadExecutor();
+    private final List<NativeErrorListener> errorListeners = new ArrayList<>();
+    private volatile NativeError lastError;
     private volatile boolean stopping;
 
     private Process process;
@@ -48,12 +41,16 @@ public class ProxyController {
         return running.get();
     }
 
-    public String getLastError() {
+    public NativeError getLastError() {
         return lastError;
     }
 
-    public void setListener(ProxyListener listener) {
-        this.listener = listener;
+    public void addListener(NativeErrorListener listener) {
+        errorListeners.add(listener);
+    }
+
+    public void removeListener(NativeErrorListener listener) {
+        errorListeners.remove(listener);
     }
 
     public void start(String relayAddress, String endpointKey, String listenAddress) throws IOException {
@@ -72,7 +69,7 @@ public class ProxyController {
         cmd.add("-l");
         cmd.add(listenAddress);
 
-        Log.d(context.getString(R.string.tag), "starting: " + String.join(" ", cmd));
+        Log.i(TAG, "starting: " + String.join(" ", cmd));
 
         stopping = false;
         running.set(true);
@@ -113,7 +110,7 @@ public class ProxyController {
             }
         }
         if (!dest.setExecutable(true, false)) {
-            Log.w(context.getString(R.string.tag), "could not set executable bit on " + dest);
+            Log.w(TAG, "could not set executable bit on " + dest);
         }
         return dest;
     }
@@ -125,17 +122,22 @@ public class ProxyController {
 
     private void monitorLoop(final Process p) {
         int code;
+        StringBuilder error = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Log.d(context.getString(R.string.tag), line);
+            String line = reader.readLine();
+            Log.d(TAG, line);
+            error.append(line);
+            while (reader.ready()) {
+                line = reader.readLine();
+                Log.d(TAG, line);
+                error.append(System.lineSeparator()).append(line);
             }
         } catch (IOException e) {
             if (stopping) {
-                Log.d(context.getString(R.string.tag), "process stopped");
+                Log.d(TAG, "process stopped");
             } else {
-                Log.w(context.getString(R.string.tag), "error reading process output", e);
+                Log.w(TAG, "error reading process output", e);
             }
         }
         try {
@@ -144,22 +146,15 @@ public class ProxyController {
             Thread.currentThread().interrupt();
             code = -1;
         }
-        Log.d(context.getString(R.string.tag), "iroh-socks exited with code " + code);
+        Log.d(TAG, "iroh-socks exited with code " + code);
 
-        if (this.process != p) {
-            return;
-        }
-
-        String error = null;
-        if (code != 0 && lastError == null) {
-            error = "iroh-socks exited with code " + code;
-            lastError = error;
-        }
         running.set(false);
 
-        ProxyListener l = listener;
-        if (l != null) {
-            l.onProcessExited(code, error);
+        if (code == 143) return;
+
+        lastError = new NativeError(code, error.toString());
+        for (NativeErrorListener l : errorListeners) {
+            l.onNativeProcessExited(lastError);
         }
     }
 }

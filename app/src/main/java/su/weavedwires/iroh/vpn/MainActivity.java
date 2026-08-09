@@ -21,16 +21,16 @@ import androidx.core.view.WindowInsetsCompat;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import su.weavedwires.iroh.vpn.error.NativeError;
+import su.weavedwires.iroh.vpn.error.NativeErrorListener;
 import su.weavedwires.iroh.vpn.proxy.ProxyController;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements NativeErrorListener {
     private EditText relayAddressField;
     private EditText endpointKeyField;
     private Button enableButton;
     private TextView statusText;
-    private TextView proxyText;
-
     private ProxyController proxyController;
     private final AtomicBoolean enabled = new AtomicBoolean(false);
 
@@ -50,37 +50,30 @@ public class MainActivity extends AppCompatActivity {
         enableButton = findViewById(R.id.enable_button);
         enableButton.setOnClickListener(this::changeState);
         statusText = findViewById(R.id.status_text);
-        proxyText = findViewById(R.id.proxy_text);
-        proxyText.setOnClickListener(this::goToProxyConfig);
-
-        proxyController = ((IrohProxyApp) getApplication()).getProxyController();
+        findViewById(R.id.proxy_text).setOnClickListener(this::goToProxyConfig);
 
         SharedPreferences prefs = getSharedPreferences(getString(R.string.prefs_name), MODE_PRIVATE);
         relayAddressField.setText(prefs.getString(getString(R.string.relay_address), ""));
         endpointKeyField.setText(prefs.getString(getString(R.string.endpoint_key), ""));
 
-        syncState();
+        proxyController = ((IrohProxyApp) getApplication()).getProxyController();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        proxyController.addListener(this);
         syncState();
     }
 
     private void syncState() {
         boolean isRunning = proxyController.isRunning();
-        enabled.set(isRunning);
-        enableButton.setText(isRunning ? R.string.disable : R.string.enable);
         if (isRunning) {
-            statusText.setText(R.string.enabled);
-            statusText.setTextColor(ContextCompat.getColor(this, R.color.enabled));
+            setUIEnabled();
         } else if (proxyController.getLastError() != null) {
-            statusText.setText(proxyController.getLastError());
-            statusText.setTextColor(ContextCompat.getColor(this, R.color.disabled));
+            setUIError(proxyController.getLastError());
         } else {
-            statusText.setText(R.string.disabled);
-            statusText.setTextColor(ContextCompat.getColor(this, R.color.disabled));
+            setUIDisabled();
         }
     }
 
@@ -112,43 +105,66 @@ public class MainActivity extends AppCompatActivity {
             );
             return;
         }
-        startProxy();
+        start();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_NOTIFICATIONS) {
-            startProxy();
+            start();
         }
     }
 
-    private void startProxy() {
+    private void start() {
         saveInputs();
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_start)));
         } else {
             startService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_start)));
         }
 
+        setUIEnabled();
+    }
+
+    private void disable() {
+        stopService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_stop)));
+        setUIDisabled();
+    }
+
+    @Override
+    public void onNativeProcessExited(NativeError error) {
+        getMainExecutor().execute(
+                () -> setUIError(error)
+        );
+    }
+
+    private void setUIEnabled() {
         enabled.set(true);
         enableButton.setText(R.string.disable);
         statusText.setText(R.string.enabled);
         statusText.setTextColor(ContextCompat.getColor(this, R.color.enabled));
     }
 
-    private void disable() {
-        stopService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_stop)));
-
+    private void setUIDisabled() {
         enabled.set(false);
         enableButton.setText(R.string.enable);
         statusText.setText(R.string.disabled);
         statusText.setTextColor(ContextCompat.getColor(this, R.color.disabled));
     }
 
+    private void setUIError(NativeError error) {
+        enabled.set(false);
+        enableButton.setText(R.string.enable);
+        statusText.setText(error.getCode() + ": " + error.getDescription());
+        statusText.setTextColor(ContextCompat.getColor(this, R.color.disabled));
+    }
+
     @Override
     protected void onStop() {
         super.onStop();
+        proxyController.removeListener(this);
         saveInputs();
     }
 

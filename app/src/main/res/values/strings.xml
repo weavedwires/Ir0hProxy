@@ -25,7 +25,6 @@
     <string name="backward">Назад</string>
     <string name="action_start">ACTION_START</string>
     <string name="action_stop">ACTION_STOP</string>
-    <string name="tag">IrohProxy</string>
     <string name="prefs_name">app_prefs</string>
     <string name="relay_adress">intermediateAddress</string>
 </resources>

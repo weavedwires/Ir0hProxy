@@ -14,14 +14,17 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import su.weavedwires.iroh.vpn.error.NativeError;
+import su.weavedwires.iroh.vpn.error.NativeErrorListener;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 
-public class ProxyService extends Service implements ProxyController.ProxyListener {
+public class ProxyService extends Service implements NativeErrorListener {
+    private static final String TAG = ProxyService.class.getSimpleName();
     private static final int NOTIFICATION_ID = 1;
-
     private ProxyController controller;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -30,7 +33,7 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
         super.onCreate();
         createNotificationChannel();
         controller = ((IrohProxyApp) getApplication()).getProxyController();
-        controller.setListener(this);
+        controller.addListener(this);
     }
 
     @Override
@@ -49,16 +52,18 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
         }
         String endpointKey = prefs.getString(getString(R.string.endpoint_key), getString(R.string.default_endpoint_key));
         String listenAddress = prefs.getString(getString(R.string.listen_address), getString(R.string.default_listen_address));
-        Log.d(getString(R.string.tag), "relayAddress: " + relayAddress);
-        Log.d(getString(R.string.tag), "endpointKey: " + endpointKey);
-        Log.d(getString(R.string.tag), "listenAddress: " + listenAddress);
+        listenAddress = listenAddress.replace("localhost", "127.0.0.1");
+
+        Log.d(TAG, "relayAddress: " + relayAddress);
+        Log.d(TAG, "endpointKey: " + endpointKey);
+        Log.d(TAG, "listenAddress: " + listenAddress);
 
         startAsForeground();
 
         try {
             controller.start(relayAddress, endpointKey, listenAddress);
         } catch (Exception e) {
-            Log.e(getString(R.string.tag), "failed to start proxy", e);
+            Log.e(TAG, "failed to start proxy", e);
             controller.stop();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -68,7 +73,7 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
     }
 
     @Override
-    public void onProcessExited(int code, String error) {
+    public void onNativeProcessExited(NativeError e) {
         mainHandler.post(() -> {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -77,16 +82,9 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
 
     @Override
     public void onDestroy() {
-        if (controller != null) {
-            controller.setListener(null);
-            controller.stop();
-        }
+        controller.removeListener(this);
+        controller.stop();
         super.onDestroy();
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
     }
 
     private void startAsForeground() {
@@ -98,7 +96,7 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
                 startForeground(NOTIFICATION_ID, notification);
             }
         } catch (Exception e) {
-            Log.e(getString(R.string.tag), "failed to start foreground", e);
+            Log.e(TAG, "failed to start foreground", e);
             Toast.makeText(this, R.string.foreground_start_failed, Toast.LENGTH_LONG).show();
             stopSelf();
         }
@@ -123,5 +121,11 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
             NotificationManager nm = getSystemService(NotificationManager.class);
             nm.createNotificationChannel(channel);
         }
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 }
