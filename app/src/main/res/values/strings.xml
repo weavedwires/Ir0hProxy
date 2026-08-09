@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Iroh Proxy</string>
+    <string name="vpn_name">Ir0h VPN by Weavedwires</string>
+    <string name="endpoint_key">Ключ конечной точки</string>
+    <string name="intermediate_adress">Адрес посредника</string>
+    <string name="vpn">VPN</string>
+    <string name="proxy">Proxy</string>
+    <string name="enable">Вкл.</string>
+    <string name="disable">Выкл.</string>
+    <string name="enabled">Включено</string>
+    <string name="disabled">Выключено</string>
+    <string name="previous_configs">Предыдущие конфигурации</string>
+</resources>
