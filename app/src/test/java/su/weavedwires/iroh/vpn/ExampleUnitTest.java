@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.proxy;
+package su.weavedwires.iroh.vpn;
 
 import org.junit.Test;
 

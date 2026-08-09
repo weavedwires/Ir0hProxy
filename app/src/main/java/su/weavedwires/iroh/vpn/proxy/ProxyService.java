@@ -1,15 +1,9 @@
-package su.weavedwires.iroh.proxy;
-
-import static su.weavedwires.iroh.proxy.Constant.ENDPOINT_KEY;
-import static su.weavedwires.iroh.proxy.Constant.LISTEN_ADDRESS;
-import static su.weavedwires.iroh.proxy.Constant.PREFS_NAME;
-import static su.weavedwires.iroh.proxy.Constant.RELAY_ADDRESS;
+package su.weavedwires.iroh.vpn.proxy;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
@@ -18,23 +12,15 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
-
-import static su.weavedwires.iroh.proxy.Constant.*;
+import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
+import su.weavedwires.iroh.vpn.R;
+import su.weavedwires.iroh.vpn.IrohProxyApp;
+
 public class ProxyService extends Service implements ProxyController.ProxyListener {
-
-    public static final String ACTION_START = "su.weavedwires.iroh.proxy.action.START";
-    public static final String ACTION_STOP = "su.weavedwires.iroh.proxy.action.STOP";
-
-    private static final String CHANNEL_ID = "iroh_proxy";
     private static final int NOTIFICATION_ID = 1;
-    public static final String HTTPS = "https://";
-    public static final String HTTP = "http://";
-    public static final String WB_SERVER = "dnd.wb.ru";
-    public static final String DEFAULT_SERVER_KEY = "Sw4RmQpRHs5AaWSh7bpiEbWkXK1ku+XgztNjLRoYYR8=";
-    public static final String LOCALHOST_1081 = "127.0.0.1:1081";
 
     private ProxyController controller;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -49,27 +35,30 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+        if (intent != null && getString(R.string.action_stop).equals(intent.getAction())) {
             controller.stop();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
             return START_NOT_STICKY;
         }
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME.str(), MODE_PRIVATE);
-        String relayAddress = prefs.getString(RELAY_ADDRESS.str(), WB_SERVER);
-        if (!relayAddress.startsWith(HTTP) || !relayAddress.startsWith(HTTPS)) {
-            relayAddress = HTTPS + relayAddress;
+        SharedPreferences prefs = getSharedPreferences(getString(R.string.prefs_name), MODE_PRIVATE);
+        String relayAddress = prefs.getString(getString(R.string.relay_address),  getString(R.string.wb_server));
+        if (!relayAddress.startsWith(getString(R.string.http)) && !relayAddress.startsWith(getString(R.string.https))) {
+            relayAddress = getString(R.string.https) + relayAddress;
         }
-        String endpointKey = prefs.getString(ENDPOINT_KEY.str(), DEFAULT_SERVER_KEY);
-        String listenAddress = prefs.getString(LISTEN_ADDRESS.str(), LOCALHOST_1081);
+        String endpointKey = prefs.getString(getString(R.string.endpoint_key), getString(R.string.default_endpoint_key));
+        String listenAddress = prefs.getString(getString(R.string.listen_address), getString(R.string.default_listen_address));
+        Log.d(getString(R.string.tag), "relayAddress: " + relayAddress);
+        Log.d(getString(R.string.tag), "endpointKey: " + endpointKey);
+        Log.d(getString(R.string.tag), "listenAddress: " + listenAddress);
 
         startAsForeground();
 
         try {
             controller.start(relayAddress, endpointKey, listenAddress);
         } catch (Exception e) {
-            Log.e(TAG.str(), "failed to start proxy", e);
+            Log.e(getString(R.string.tag), "failed to start proxy", e);
             controller.stop();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -102,15 +91,21 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
 
     private void startAsForeground() {
         Notification notification = buildNotification();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            Log.e(getString(R.string.tag), "failed to start foreground", e);
+            Toast.makeText(this, R.string.foreground_start_failed, Toast.LENGTH_LONG).show();
+            stopSelf();
         }
     }
 
     private Notification buildNotification() {
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, getString(R.string.app_name))
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(getString(R.string.notification_title))
                 .setContentText(getString(R.string.notification_text))
@@ -122,7 +117,7 @@ public class ProxyService extends Service implements ProxyController.ProxyListen
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, getString(R.string.notification_channel_name),
+                    getString(R.string.app_name), getString(R.string.notification_channel_name),
                     NotificationManager.IMPORTANCE_LOW);
             channel.setDescription(getString(R.string.notification_channel_description));
             NotificationManager nm = getSystemService(NotificationManager.class);

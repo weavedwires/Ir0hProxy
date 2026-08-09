@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.proxy;
+package su.weavedwires.iroh.vpn;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("su.weavedwires.iroh.proxy", appContext.getPackageName());
+        assertEquals("su.weavedwires.iroh.vpn", appContext.getPackageName());
     }
 }

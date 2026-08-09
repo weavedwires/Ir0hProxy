@@ -1,6 +1,8 @@
-package su.weavedwires.iroh.proxy;
+package su.weavedwires.iroh.vpn;
 
 import android.app.Application;
+
+import su.weavedwires.iroh.vpn.proxy.ProxyController;
 
 public class IrohProxyApp extends Application {
     private ProxyController proxyController;

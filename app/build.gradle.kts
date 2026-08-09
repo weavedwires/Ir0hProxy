@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace = "su.weavedwires.iroh.proxy"
+    namespace = "su.weavedwires.iroh.vpn"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "su.weavedwires.iroh.proxy"
+        applicationId = "su.weavedwires.iroh.vpn"
         minSdk = 24
         targetSdk = 37
         versionCode = 1

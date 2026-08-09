@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.proxy;
+package su.weavedwires.iroh.vpn.proxy;
 
 import android.content.Context;
 import android.util.Log;
@@ -14,12 +14,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static su.weavedwires.iroh.proxy.Constant.*;
+import su.weavedwires.iroh.vpn.R;
 
 public class ProxyController {
-    private static final String BINARY_NAME = "libiroh-socks.so";
 
     public interface ProxyListener {
         void onProcessExited(int code, String error);
@@ -27,11 +28,17 @@ public class ProxyController {
 
     private final Context context;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final ExecutorService monitorExecutor =
+            Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "iroh-monitor");
+                t.setDaemon(true);
+                return t;
+            });
     private volatile String lastError;
     private volatile ProxyListener listener;
+    private volatile boolean stopping;
 
     private Process process;
-    private Thread monitorThread;
 
     public ProxyController(Context context) {
         this.context = context;
@@ -54,23 +61,20 @@ public class ProxyController {
         List<String> cmd = new ArrayList<>();
         cmd.add(binary.getAbsolutePath());
 
-        if (relayAddress != null && !relayAddress.isEmpty()) {
-            cmd.add("-r");
-            cmd.add(relayAddress);
-        }
+        cmd.add("-r");
+        cmd.add(relayAddress);
 
         cmd.add("client");
 
-        if (endpointKey != null && !endpointKey.isEmpty()) {
-            cmd.add("-k");
-            cmd.add(endpointKey);
-        }
+        cmd.add("-k");
+        cmd.add(endpointKey);
 
         cmd.add("-l");
         cmd.add(listenAddress);
 
-        Log.d(TAG.str(), "starting: " + String.join(" ", cmd));
+        Log.d(context.getString(R.string.tag), "starting: " + String.join(" ", cmd));
 
+        stopping = false;
         running.set(true);
         lastError = null;
 
@@ -83,6 +87,7 @@ public class ProxyController {
     }
 
     public void stop() {
+        stopping = true;
         if (process != null) {
             process.destroy();
             process = null;
@@ -91,7 +96,7 @@ public class ProxyController {
     }
 
     private File extractBinary() throws IOException {
-        File src = new File(context.getApplicationInfo().nativeLibraryDir, BINARY_NAME);
+        File src = new File(context.getApplicationInfo().nativeLibraryDir, context.getString(R.string.libiroh_socks_so));
         if (!src.exists()) {
             throw new IOException("native binary not found: " + src.getAbsolutePath());
         }
@@ -108,44 +113,53 @@ public class ProxyController {
             }
         }
         if (!dest.setExecutable(true, false)) {
-            Log.w(TAG.str(), "could not set executable bit on " + dest);
+            Log.w(context.getString(R.string.tag), "could not set executable bit on " + dest);
         }
         return dest;
     }
 
     private void monitorProcess() {
-        monitorThread = new Thread(() -> {
-            int code;
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    Log.d(TAG.str(), line);
-                }
-            } catch (IOException e) {
-                Log.w(TAG.str(), "error reading process output", e);
-            }
-            try {
-                code = process.waitFor();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                code = -1;
-            }
-            Log.d(TAG.str(), "iroh-socks exited with code " + code);
+        final Process p = process;
+        monitorExecutor.execute(() -> monitorLoop(p));
+    }
 
-            String error = null;
-            if (code != 0 && lastError == null) {
-                error = "iroh-socks exited with code " + code;
-                lastError = error;
+    private void monitorLoop(final Process p) {
+        int code;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                Log.d(context.getString(R.string.tag), line);
             }
-            running.set(false);
+        } catch (IOException e) {
+            if (stopping) {
+                Log.d(context.getString(R.string.tag), "process stopped");
+            } else {
+                Log.w(context.getString(R.string.tag), "error reading process output", e);
+            }
+        }
+        try {
+            code = p.waitFor();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            code = -1;
+        }
+        Log.d(context.getString(R.string.tag), "iroh-socks exited with code " + code);
 
-            ProxyListener l = listener;
-            if (l != null) {
-                l.onProcessExited(code, error);
-            }
-        });
-        monitorThread.setDaemon(true);
-        monitorThread.start();
+        if (this.process != p) {
+            return;
+        }
+
+        String error = null;
+        if (code != 0 && lastError == null) {
+            error = "iroh-socks exited with code " + code;
+            lastError = error;
+        }
+        running.set(false);
+
+        ProxyListener l = listener;
+        if (l != null) {
+            l.onProcessExited(code, error);
+        }
     }
 }

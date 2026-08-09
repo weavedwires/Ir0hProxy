@@ -1,7 +1,4 @@
-package su.weavedwires.iroh.proxy;
-
-import static su.weavedwires.iroh.proxy.ProxyService.ACTION_START;
-import static su.weavedwires.iroh.proxy.ProxyService.ACTION_STOP;
+package su.weavedwires.iroh.vpn;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,13 +21,15 @@ import androidx.core.view.WindowInsetsCompat;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static su.weavedwires.iroh.proxy.Constant.*;
+import su.weavedwires.iroh.vpn.proxy.ProxyController;
+import su.weavedwires.iroh.vpn.proxy.ProxyService;
 
 public class MainActivity extends AppCompatActivity {
     private EditText relayAddressField;
     private EditText endpointKeyField;
     private Button enableButton;
     private TextView statusText;
+    private TextView proxyText;
 
     private ProxyController proxyController;
     private final AtomicBoolean enabled = new AtomicBoolean(false);
@@ -51,12 +50,14 @@ public class MainActivity extends AppCompatActivity {
         enableButton = findViewById(R.id.enable_button);
         enableButton.setOnClickListener(this::changeState);
         statusText = findViewById(R.id.status_text);
+        proxyText = findViewById(R.id.proxy_text);
+        proxyText.setOnClickListener(this::goToProxyConfig);
 
         proxyController = ((IrohProxyApp) getApplication()).getProxyController();
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME.str(), MODE_PRIVATE);
-        relayAddressField.setText(prefs.getString(RELAY_ADDRESS.str(), ""));
-        endpointKeyField.setText(prefs.getString(ENDPOINT_KEY.str(), ""));
+        SharedPreferences prefs = getSharedPreferences(getString(R.string.prefs_name), MODE_PRIVATE);
+        relayAddressField.setText(prefs.getString(getString(R.string.relay_address), ""));
+        endpointKeyField.setText(prefs.getString(getString(R.string.endpoint_key), ""));
 
         syncState();
     }
@@ -91,6 +92,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void goToProxyConfig(View view) {
+        startActivity(new Intent(this, ProxyConfigActivity.class));
+    }
+
     private static final int REQUEST_NOTIFICATIONS = 1;
     private void enable() {
         if (
@@ -121,9 +126,9 @@ public class MainActivity extends AppCompatActivity {
     private void startProxy() {
         saveInputs();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(new Intent(this, ProxyService.class).setAction(ACTION_START));
+            startForegroundService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_start)));
         } else {
-            startService(new Intent(this, ProxyService.class).setAction(ACTION_START));
+            startService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_start)));
         }
 
         enabled.set(true);
@@ -133,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void disable() {
-        stopService(new Intent(this, ProxyService.class).setAction(ACTION_STOP));
+        stopService(new Intent(this, ProxyService.class).setAction(getString(R.string.action_stop)));
 
         enabled.set(false);
         enableButton.setText(R.string.enable);
@@ -148,10 +153,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveInputs() {
-        getSharedPreferences(PREFS_NAME.str(), MODE_PRIVATE)
-                .edit()
-                .putString(RELAY_ADDRESS.str(), relayAddressField.getText().toString())
-                .putString(ENDPOINT_KEY.str(), endpointKeyField.getText().toString())
-                .apply();
+        var editor = getSharedPreferences(getString(R.string.prefs_name), MODE_PRIVATE).edit();
+
+        String relayAddress = relayAddressField.getText().toString().trim();
+        if (relayAddress.isEmpty()) {
+            editor.remove(getString(R.string.relay_address));
+        } else {
+            editor.putString(getString(R.string.relay_address), relayAddress);
+        }
+
+        String endpointKey = endpointKeyField.getText().toString().trim();
+        if (endpointKey.isEmpty()) {
+            editor.remove(getString(R.string.endpoint_key));
+        } else {
+            editor.putString(getString(R.string.endpoint_key), endpointKey);
+        }
+
+        editor.apply();
     }
 }

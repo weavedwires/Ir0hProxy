@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Iroh Proxy</string>
-    <string name="vpn_name">Ir0h VPN by Weavedwires</string>
+    <string name="app_name">Ir0h VPN</string>
+    <string name="app_name_with_nick">Ir0h VPN by Weavedwires</string>
     <string name="endpoint_key">Ключ конечной точки</string>
     <string name="relay_address">Адрес посредника</string>
     <string name="vpn">VPN</string>
@@ -10,8 +10,22 @@
     <string name="enabled">Включено</string>
     <string name="disabled">Выключено</string>
     <string name="previous_configs">Предыдущие конфигурации</string>
-    <string name="notification_channel_name">Iroh Proxy</string>
+    <string name="notification_channel_name">Ir0h VPN</string>
     <string name="notification_channel_description">Статус SOCKS-прокси</string>
-    <string name="notification_title">Iroh Proxy</string>
-    <string name="notification_text">Прокси запущен, нажмите для остановки</string>
+    <string name="notification_title">Ir0h VPN работает</string>
+    <string name="notification_text">Трафик проксируется</string>
+    <string name="foreground_start_failed">Не удалось запустить прокси</string>
+    <string name="libiroh_socks_so">libiroh-socks.so</string>
+    <string name="default_endpoint_key">Sw4RmQpRHs5AaWSh7bpiEbWkXK1ku+XgztNjLRoYYR8=</string>
+    <string name="default_listen_address">127.0.0.1:1081</string>
+    <string name="https">https://</string>
+    <string name="wb_server">dnd.wb.ru</string>
+    <string name="http">http://</string>
+    <string name="listen_address">Локально прослушиваемый адрес</string>
+    <string name="backward">Назад</string>
+    <string name="action_start">ACTION_START</string>
+    <string name="action_stop">ACTION_STOP</string>
+    <string name="tag">IrohProxy</string>
+    <string name="prefs_name">app_prefs</string>
+    <string name="relay_adress">intermediateAddress</string>
 </resources>
