@@ -7,9 +7,11 @@
 # The dumbpipe repo is located via this repo's `dumbpipe` symlink, or via
 # $DUMBPIPE_DIR.
 #
-# Every binary is copied as <abi>/dumbpipe.so: ProxyController looks the binary
-# up as binary_name + ".so" (binary_name = "dumbpipe" in res/values/strings.xml),
-# so the destination name MUST be dumbpipe.so or the app cannot start it.
+# Every binary is copied as <abi>/libdumbpipe.so: ProxyController looks the
+# binary up as binary_name + ".so" (binary_name = "libdumbpipe" in Constant.java).
+# The "lib" prefix is REQUIRED: Android only extracts native libs whose name
+# starts with "lib" from the APK (non-debuggable builds), so a plain
+# "dumbpipe.so" would be missing from nativeLibraryDir at runtime.
 #
 # Usage: ./scripts/sync_dumbpipe.sh   (or DUMBPIPE_DIR=/path ./scripts/sync_dumbpipe.sh)
 set -euo pipefail
@@ -37,11 +39,11 @@ for src in "$DIST"/dumbpipe-android-*; do
     # remove binaries of the previous backends (iroh-socks / tun2socks)
     # and any leftovers copied under their original source names
     rm -f "$APP_JNI/$abi"/libiroh-socks.so "$APP_JNI/$abi"/libtun2socks.so \
-          "$APP_JNI/$abi"/dumbpipe-android-*
+          "$APP_JNI/$abi"/dumbpipe.so "$APP_JNI/$abi"/dumbpipe-android-*
 
     mkdir -p "$APP_JNI/$abi"
-    cp "$src" "$APP_JNI/$abi/dumbpipe.so"
-    echo ">> $src -> $APP_JNI/$abi/dumbpipe.so ($(du -h "$APP_JNI/$abi/dumbpipe.so" | cut -f1))"
+    cp "$src" "$APP_JNI/$abi/libdumbpipe.so"
+    echo ">> $src -> $APP_JNI/$abi/libdumbpipe.so ($(du -h "$APP_JNI/$abi/libdumbpipe.so" | cut -f1))"
     count=$((count + 1))
 done
 

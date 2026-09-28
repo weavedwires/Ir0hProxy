@@ -32,6 +32,11 @@ output-metadata.json
 /dumbpipe
 /tun2socks
 
+# Signing (keystore + secrets)
+*.jks
+*.keystore
+/keystore.properties
+
 # Logs, temp and OS junk
 *.log
 *.tmp

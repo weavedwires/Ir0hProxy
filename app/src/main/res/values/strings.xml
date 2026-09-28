@@ -11,7 +11,7 @@
     <string name="previous_configs">Предыдущие конфигурации</string>
     <string name="notification_channel_name">Ir0h VPN</string>
     <string name="notification_channel_description">Статус SOCKS-прокси</string>
-    <string name="notification_title">Ir0h VPN работает</string>
+    <string name="notification_title">VPN работает</string>
     <string name="notification_text">Трафик проксируется</string>
     <string name="foreground_start_failed">Не удалось запустить прокси</string>
     <string name="listen_address">Локально прослушиваемый адрес</string>

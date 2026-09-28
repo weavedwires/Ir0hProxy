@@ -13,7 +13,7 @@ public class Constant {
     public static final String HOST = "HOST";
     public static final String PORT = "PORT";
     public static final String DNS = "DNS";
-    public static final String IROH_BINARY_NAME = "dumbpipe";
+    public static final String IROH_BINARY_NAME = "libdumbpipe";
     public static final String ACTION_STOP = "ACTION_STOP";
     public static final String ACTION_START = "ACTION_START";
     public static final String EXTRA_TICKET = "EXTRA_TICKET";
