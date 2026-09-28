@@ -1,6 +1,11 @@
 package su.weavedwires.iroh.vpn.activity;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
@@ -19,6 +24,7 @@ import su.weavedwires.iroh.vpn.Constant;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.ConnectionStore;
+import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 
 public class ConnectionConfigActivity extends AppCompatActivity {
 
@@ -59,6 +65,9 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         deleteButton.setVisibility(editIndex >= 0 ? View.VISIBLE : View.GONE);
         deleteButton.setOnClickListener(v -> confirmDelete());
 
+        MaterialButton shareButton = findViewById(R.id.share_button);
+        shareButton.setOnClickListener(v -> share());
+
         prefillFromExtras();
     }
 
@@ -85,14 +94,14 @@ public class ConnectionConfigActivity extends AppCompatActivity {
     }
 
     private void save() {
-        String name = nameInput.getText().toString().trim();
-        String ticket = ticketInput.getText().toString().trim();
+        String name = getText(nameInput);
+        String ticket = getText(ticketInput);
         if (ticket.isEmpty()) {
             Toast.makeText(this, R.string.ticket_required, Toast.LENGTH_SHORT).show();
             return;
         }
-        String user = userInput.getText().toString().trim();
-        String password = passwordInput.getText().toString();
+        String user = getText(userInput);
+        String password = getText(passwordInput);
 
         Connection connection = new Connection(name, user, password, ticket);
         if (editIndex >= 0) {
@@ -113,5 +122,29 @@ public class ConnectionConfigActivity extends AppCompatActivity {
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
+    }
+
+    private void share() {
+        save();
+
+        IrohSocksLink link = new IrohSocksLink(getText(nameInput), getText(userInput), getText(passwordInput), getText(ticketInput));
+
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("irohsocks-link", link.toString());
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(this, "Скопировано в буфер обмена", Toast.LENGTH_SHORT).show();
+
+        Intent share = new Intent(Intent.ACTION_SEND);
+        share.putExtra(Intent.EXTRA_TEXT, link.toString());
+        share.setType("text/plain");
+        try {
+            startActivity(share);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Нет подходящих приложений", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static String getText(TextInputEditText field) {
+        return field.getText().toString().trim();
     }
 }

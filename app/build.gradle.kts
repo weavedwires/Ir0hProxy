@@ -43,6 +43,12 @@ android {
     }
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
 dependencies {
     implementation(libs.activity.ktx)
     implementation(libs.appcompat)

@@ -40,6 +40,7 @@
     <string name="settings">Настройки</string>
     <string name="edit_config">Редактировать конфиг</string>
     <string name="remove">Удалить</string>
+    <string name="share">Поделиться</string>
     <string name="delete_confirm_title">Удалить подключение?</string>
     <string name="delete_confirm_message">Это действие невозможно отменить.</string>
     <string name="cancel">Отмена</string>

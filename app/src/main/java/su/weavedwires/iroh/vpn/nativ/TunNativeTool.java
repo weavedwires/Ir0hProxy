@@ -1,28 +1,40 @@
 package su.weavedwires.iroh.vpn.nativ;
 
-public final class Tun2Socks {
+import su.weavedwires.iroh.vpn.nativ.error.NativeError;
+
+public final class TunNativeTool extends NativeTool {
 
     static {
         System.loadLibrary("hev-socks5-tunnel");
     }
 
-    private static final Tun2Socks INSTANCE = new Tun2Socks();
+    private static final TunNativeTool INSTANCE = new TunNativeTool();
 
-    private Tun2Socks() {
+    private TunNativeTool() {
     }
 
-    public static Tun2Socks getInstance() {
+    public static TunNativeTool getInstance() {
         return INSTANCE;
     }
 
     public boolean start(String configPath, int fd) {
-        return TProxyStartService(configPath, fd);
+        boolean ok = TProxyStartService(configPath, fd);
+        setRunning(ok);
+        if (ok) {
+            clearError();
+        } else {
+            pushError(new NativeError(-1, "TProxyStartService failed"));
+        }
+        return ok;
     }
 
-    public boolean stop() {
-        return TProxyStopService();
+    @Override
+    public void stop() {
+        TProxyStopService();
+        setRunning(false);
     }
 
+    @Override
     public boolean isRunning() {
         return TProxyIsRunning();
     }

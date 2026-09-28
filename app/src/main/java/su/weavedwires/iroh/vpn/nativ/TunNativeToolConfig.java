@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 
 import su.weavedwires.iroh.vpn.Constant;
 
-public final class Tun2SocksConfig {
+public final class TunNativeToolConfig {
 
     private final int taskStackSize;
     private final int mtu;
@@ -22,7 +22,7 @@ public final class Tun2SocksConfig {
     private final InetAddress mapDnsNetmask;
     private final int mapDnsCacheSize;
 
-    private Tun2SocksConfig(Builder builder) {
+    private TunNativeToolConfig(Builder builder) {
         this.taskStackSize = builder.taskStackSize;
         this.mtu = builder.mtu;
         this.socks5 = builder.socks5;
@@ -125,8 +125,8 @@ public final class Tun2SocksConfig {
             return this;
         }
 
-        public Tun2SocksConfig build() {
-            return new Tun2SocksConfig(this);
+        public TunNativeToolConfig build() {
+            return new TunNativeToolConfig(this);
         }
     }
 }

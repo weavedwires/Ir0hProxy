@@ -3,10 +3,34 @@ package su.weavedwires.iroh.vpn.model;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class Connection extends IrohSocksLink {
+
+public class Connection {
+    private final String name;
+    private final String user;
+    private final String password;
+    private final String ticket;
 
     public Connection(String name, String user, String password, String ticket) {
-        super(name, user, password, ticket);
+        this.name = name;
+        this.user = user;
+        this.password = password;
+        this.ticket = ticket;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getUser() {
+        return user;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getTicket() {
+        return ticket;
     }
 
     public JSONObject toJson() {

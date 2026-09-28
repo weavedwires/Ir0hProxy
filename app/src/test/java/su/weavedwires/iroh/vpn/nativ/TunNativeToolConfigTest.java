@@ -10,11 +10,11 @@ import org.junit.Test;
 
 import su.weavedwires.iroh.vpn.Constant;
 
-public class Tun2SocksConfigTest {
+public class TunNativeToolConfigTest {
 
     @Test
     public void defaults_renderExpectedConfig() {
-        Tun2SocksConfig config = Tun2SocksConfig.builder().build();
+        TunNativeToolConfig config = TunNativeToolConfig.builder().build();
         String rendered = config.toConfigString();
 
         assertTrue(rendered.contains("task-stack-size: " + Constant.TASK_STACK_SIZE));
@@ -28,7 +28,7 @@ public class Tun2SocksConfigTest {
 
     @Test
     public void socksPort_isReflected() {
-        Tun2SocksConfig config = Tun2SocksConfig.builder()
+        TunNativeToolConfig config = TunNativeToolConfig.builder()
                 .socks5(new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, 4321))
                 .build();
 
@@ -37,7 +37,7 @@ public class Tun2SocksConfigTest {
 
     @Test
     public void credentials_areIncludedWhenBothPresent() {
-        Tun2SocksConfig config = Tun2SocksConfig.builder()
+        TunNativeToolConfig config = TunNativeToolConfig.builder()
                 .credentials("alice", "secret")
                 .build();
         String rendered = config.toConfigString();
@@ -48,7 +48,7 @@ public class Tun2SocksConfigTest {
 
     @Test
     public void credentials_areOmittedWhenPartial() {
-        Tun2SocksConfig config = Tun2SocksConfig.builder()
+        TunNativeToolConfig config = TunNativeToolConfig.builder()
                 .credentials("alice", "")
                 .build();
         String rendered = config.toConfigString();

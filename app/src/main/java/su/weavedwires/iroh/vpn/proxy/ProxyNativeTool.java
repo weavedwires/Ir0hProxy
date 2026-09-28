@@ -7,13 +7,13 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-import su.weavedwires.iroh.vpn.nativ.BinaryRunner;
+import su.weavedwires.iroh.vpn.nativ.BinaryNativeTool;
 import su.weavedwires.iroh.vpn.nativ.CmdBuilder;
 
-public class ProxyRunner extends BinaryRunner {
+public class ProxyNativeTool extends BinaryNativeTool {
     private final File binary;
 
-    public ProxyRunner(File workDir, File binary) {
+    public ProxyNativeTool(File workDir, File binary) {
         super(workDir, binary);
         this.binary = binary;
     }

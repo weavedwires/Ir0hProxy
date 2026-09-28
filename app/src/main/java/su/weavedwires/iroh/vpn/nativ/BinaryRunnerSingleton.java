@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.function.BiFunction;
 
 
-public class BinaryRunnerSingleton<T extends BinaryRunner> {
+public class BinaryRunnerSingleton<T extends BinaryNativeTool> {
     private volatile T object;
 
     public T getOrCreateInstance(File nativeLibraryDir, File filesDir, String binaryName, BiFunction<File, File, T> constructor) throws IOException {
@@ -20,19 +20,14 @@ public class BinaryRunnerSingleton<T extends BinaryRunner> {
     }
 
     public T createInstance(File nativeLibraryDir, File filesDir, String binaryName, BiFunction<File, File, T> constructor) throws IOException {
-        File binary = extractBinary(nativeLibraryDir, filesDir, binaryName);
+        File binary = new File(nativeLibraryDir, binaryName + ".so");
+        if (!binary.isFile()) {
+            throw new IOException("native binary not found: " + binary.getAbsolutePath());
+        }
         return constructor.apply(filesDir, binary);
     }
 
     public T getInstance() {
         return object;
-    }
-
-    private File extractBinary(File nativeLibraryDir, File workdir, String binaryName) throws IOException {
-        return new BinaryExtractor(
-                    nativeLibraryDir,
-                    binaryName,
-                    workdir
-        ).extract();
     }
 }

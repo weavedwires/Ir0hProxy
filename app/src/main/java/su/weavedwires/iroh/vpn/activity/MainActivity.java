@@ -34,6 +34,7 @@ import com.google.android.material.snackbar.Snackbar;
 import java.util.List;
 
 import su.weavedwires.iroh.vpn.Constant;
+import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.Settings;
 import su.weavedwires.iroh.vpn.model.Connection;
@@ -115,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
         String rawLink = intent.getData().toString();
         intent.setData(null);
         try {
-            IrohSocksLink link = IrohSocksLink.parse(rawLink);
+            IrohSocksLink link = new IrohSocksLink(rawLink);
             connectionStore.add(link.toConnection());
             loadConnections();
         } catch (IllegalArgumentException e) {
@@ -195,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
         }
         String text = clip.getItemAt(0).coerceToText(this).toString();
         try {
-            IrohSocksLink link = IrohSocksLink.parse(text);
+            IrohSocksLink link = new IrohSocksLink(text);
             Intent intent = new Intent(this, ConnectionConfigActivity.class)
                     .putExtra(Constant.EXTRA_NAME, link.getName())
                     .putExtra(Constant.EXTRA_USER, link.getUser())
@@ -208,10 +209,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toggleProxy() {
-        if (settings.isEnabled()) {
+        if (isServiceRunning()) {
             stopProxy();
         } else {
             startProxy();
+        }
+    }
+
+    private boolean isServiceRunning() {
+        try {
+            return ((IrohProxyApp) getApplication()).isProxyRunning();
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 
@@ -273,11 +282,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void syncState() {
-        boolean enabled = settings.isEnabled();
-        updatePowerButton(enabled);
+        boolean running = isServiceRunning();
+        if (settings.isEnabled() != running) {
+            settings.setEnabled(running);
+        }
+        updatePowerButton(running);
 
         String error = settings.getLastError();
-        if (enabled) {
+        if (running) {
             lastShownError = null;
         } else if (error != null && !error.isEmpty() && !error.equals(lastShownError)) {
             lastShownError = error;

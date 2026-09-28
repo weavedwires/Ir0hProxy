@@ -1,108 +1,99 @@
 package su.weavedwires.iroh.vpn.model;
 
+import androidx.annotation.NonNull;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 
 public class IrohSocksLink {
-
     public static final String SCHEME = "irohsocks";
+    private final URI link;
 
-    private final String name;
-    private final String user;
-    private final String password;
-    private final String ticket;
-
-    protected IrohSocksLink(String name, String user, String password, String ticket) {
-        this.name = name == null ? "" : name;
-        this.user = user == null ? "" : user;
-        this.password = password == null ? "" : password;
-        this.ticket = ticket == null ? "" : ticket;
+    public IrohSocksLink(Connection connection) {
+        this(connection.getName(), connection.getUser(), connection.getPassword(), connection.getTicket());
     }
 
-    public static IrohSocksLink parse(String link) {
-        if (link == null) {
+    public IrohSocksLink(String name, String user, String password, String ticket) {
+        this.link = transform(assemble(name, user, password, ticket));
+    }
+
+    public IrohSocksLink(String link) {
+        this.link = transform(link);
+    }
+
+    private static URI transform(String linkStr) {
+        if (linkStr == null) {
             throw new IllegalArgumentException("link is null");
         }
-        String trimmed = link.trim();
-        URI uri;
+        URI link;
         try {
-            uri = new URI(trimmed);
+            link = new URI(linkStr.trim());
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("invalid link", e);
         }
-        if (!SCHEME.equals(uri.getScheme())) {
+        if (link.getScheme() == null || !SCHEME.equalsIgnoreCase(link.getScheme())) {
             throw new IllegalArgumentException("invalid scheme");
         }
-
-        String rawAuthority = uri.getRawAuthority() == null ? "" : uri.getRawAuthority();
-        int at = rawAuthority.lastIndexOf('@');
-
-        String user = "";
-        String password = "";
-        String ticket;
-        if (at >= 0) {
-            String userInfo = decode(rawAuthority.substring(0, at));
-            int colon = userInfo.indexOf(':');
-            user = colon < 0 ? userInfo : userInfo.substring(0, colon);
-            password = colon < 0 ? "" : userInfo.substring(colon + 1);
-            ticket = decode(rawAuthority.substring(at + 1));
-        } else {
-            ticket = decode(rawAuthority);
+        if (link.getHost() == null || link.getHost().isEmpty()) {
+            throw new IllegalArgumentException("missing ticket");
         }
-
-        if (ticket.isEmpty()) {
-            throw new IllegalArgumentException("empty ticket");
-        }
-
-        String name = uri.getRawFragment() == null ? "" : decode(uri.getRawFragment());
-
-        return new IrohSocksLink(name, user, password, ticket);
+        return link;
     }
 
-    private static String decode(String raw) {
+    private static String assemble(String name, String user, String password, String ticket) {
+        String safeName = name == null ? "" : name;
+        String safeUser = user == null ? "" : user;
+        String safePassword = password == null ? "" : password;
+        String safeTicket = ticket == null ? "" : ticket;
+        String userInfo = (safeUser.isEmpty() && safePassword.isEmpty())
+                ? null : safeUser + ":" + safePassword;
+        String fragment = safeName.isEmpty() ? null : safeName;
         try {
-            return new URI("#" + raw).getFragment();
+            return new URI(SCHEME, userInfo, safeTicket, -1, null, null, fragment).toString();
         } catch (URISyntaxException e) {
-            return raw;
+            throw new IllegalArgumentException("invalid connection", e);
         }
     }
 
     public String getName() {
-        return name;
+        String fragment = link.getFragment();
+        return (fragment == null || fragment.isEmpty()) ? null : fragment;
     }
 
     public String getUser() {
-        return user;
+        String userInfo = link.getUserInfo();
+        if (userInfo == null) {
+            return null;
+        }
+        int colon = userInfo.indexOf(':');
+        String user = colon >= 0 ? userInfo.substring(0, colon) : userInfo;
+        return user.isEmpty() ? null : user;
     }
 
     public String getPassword() {
-        return password;
+        String userInfo = link.getUserInfo();
+        if (userInfo == null) {
+            return null;
+        }
+        int colon = userInfo.indexOf(':');
+        if (colon < 0) {
+            return null;
+        }
+        String password = userInfo.substring(colon + 1);
+        return password.isEmpty() ? null : password;
     }
 
     public String getTicket() {
-        return ticket;
+        return link.getHost();
     }
 
     public Connection toConnection() {
-        return new Connection(name, user, password, ticket);
+        return new Connection(getName(), getUser(), getPassword(), getTicket());
     }
 
+    @NonNull
     @Override
     public String toString() {
-        String userInfo = (user.isEmpty() && password.isEmpty()) ? null : user + ":" + password;
-        String fragment = name.isEmpty() ? null : name;
-        try {
-            return new URI(SCHEME, userInfo, ticket, -1, null, null, fragment).toString();
-        } catch (URISyntaxException e) {
-            StringBuilder sb = new StringBuilder(SCHEME).append("://");
-            if (userInfo != null) {
-                sb.append(userInfo).append('@');
-            }
-            sb.append(ticket);
-            if (fragment != null) {
-                sb.append('#').append(fragment);
-            }
-            return sb.toString();
-        }
+        return link.toString();
     }
 }
