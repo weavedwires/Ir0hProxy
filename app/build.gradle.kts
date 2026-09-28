@@ -18,28 +18,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            optimization {
-                enable = false
-            }
-        }
-    }
-
     packaging {
         jniLibs {
             useLegacyPackaging = true
         }
-        resources {
-            excludes += setOf(
-                "META-INF/io.netty.versions.properties",
-                "META-INF/INDEX.LIST"
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
     }
 }
 
@@ -56,8 +38,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.recyclerview)
     implementation(libs.security.crypto)
-    implementation(libs.netty.handler.proxy)
-    implementation(libs.netty.transport.native.epoll)
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
