@@ -1,4 +1,6 @@
-package su.weavedwires.iroh.vpn.error;
+package su.weavedwires.iroh.vpn.nativ.error;
+
+import androidx.annotation.NonNull;
 
 public class NativeError {
     public NativeError(int code, String description) {
@@ -14,5 +16,11 @@ public class NativeError {
 
     public String getDescription() {
         return description;
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+        return String.format("exited with code %d: %s", code, description);
     }
 }

@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.error;
+package su.weavedwires.iroh.vpn.nativ.error;
 
 public interface NativeErrorListener {
     void onNativeProcessExited(NativeError error);

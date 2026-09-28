@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="disabled">#FF0000</color>
-    <color name="enabled">#00FF00</color>
+    <color name="disabled">#EF5350</color>
+    <color name="enabled">#43A047</color>
 </resources>

@@ -3,129 +3,237 @@ package su.weavedwires.iroh.vpn.proxy;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.Service;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
+import android.net.VpnService;
 import android.os.Build;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import android.widget.Toast;
 
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
-import su.weavedwires.iroh.vpn.error.NativeError;
-import su.weavedwires.iroh.vpn.error.NativeErrorListener;
-import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.IrohProxyApp;
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
-public class ProxyService extends Service implements NativeErrorListener {
-    private static final String TAG = ProxyService.class.getSimpleName();
+import su.weavedwires.iroh.vpn.Constant;
+import su.weavedwires.iroh.vpn.IrohProxyApp;
+import su.weavedwires.iroh.vpn.Mode;
+import su.weavedwires.iroh.vpn.R;
+import su.weavedwires.iroh.vpn.Settings;
+import su.weavedwires.iroh.vpn.activity.MainActivity;
+import su.weavedwires.iroh.vpn.nativ.PortProbe;
+import su.weavedwires.iroh.vpn.nativ.Tun2Socks;
+import su.weavedwires.iroh.vpn.nativ.Tun2SocksConfig;
+import su.weavedwires.iroh.vpn.nativ.error.NativeError;
+import su.weavedwires.iroh.vpn.nativ.error.NativeErrorListener;
+
+public class ProxyService extends VpnService implements NativeErrorListener {
+
+    private static final String TAG = "ProxyService";
     private static final int NOTIFICATION_ID = 1;
-    private ProxyController controller;
+    private static final String CHANNEL_ID = "iroh_vpn";
+    private static final long PORT_WAIT_TIMEOUT_MS = 15_000L;
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Tun2Socks tun2Socks = Tun2Socks.getInstance();
+
+    private Settings settings;
+    private ProxyRunner proxyRunner;
+    private ParcelFileDescriptor tunFd;
+    private volatile boolean running;
+    private int localPort;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        controller = ((IrohProxyApp) getApplication()).getProxyController();
-        controller.addListener(this);
+        settings = new Settings(this);
+        proxyRunner = ((IrohProxyApp) getApplication()).getProxyRunner();
+        proxyRunner.addListener(this);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && getString(R.string.action_stop).equals(intent.getAction())) {
-            controller.stop();
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
+        if (intent != null && Constant.ACTION_STOP.equals(intent.getAction())) {
+            stopProxy();
             return START_NOT_STICKY;
         }
-
-        SharedPreferences prefs = getSharedPreferences(getString(R.string.prefs_name), MODE_PRIVATE);
-        String relayAddress = prefs.getString(getString(R.string.relay_address),  getString(R.string.wb_server));
-        if (!relayAddress.startsWith(getString(R.string.http)) && !relayAddress.startsWith(getString(R.string.https))) {
-            relayAddress = getString(R.string.https) + relayAddress;
-        }
-        String endpointKey = prefs.getString(getString(R.string.endpoint_key), getString(R.string.default_endpoint_key));
-        String listenAddress = prefs.getString(getString(R.string.listen_address), getString(R.string.default_listen_address));
-        listenAddress = listenAddress.replace("localhost", "127.0.0.1");
-
-        Log.d(TAG, "relayAddress: " + relayAddress);
-        Log.d(TAG, "endpointKey: " + endpointKey);
-        Log.d(TAG, "listenAddress: " + listenAddress);
-
-        startAsForeground();
-
-        try {
-            controller.start(relayAddress, endpointKey, listenAddress);
-        } catch (Exception e) {
-            Log.e(TAG, "failed to start proxy", e);
-            controller.stop();
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
-        }
-
-        return START_REDELIVER_INTENT;
-    }
-
-    @Override
-    public void onNativeProcessExited(NativeError e) {
-        mainHandler.post(() -> {
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
-        });
+        startProxy(intent);
+        return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        controller.removeListener(this);
-        controller.stop();
         super.onDestroy();
+        if (proxyRunner != null) {
+            proxyRunner.removeListener(this);
+        }
+    }
+
+    @Override
+    public void onRevoke() {
+        stopProxy();
+        super.onRevoke();
+    }
+
+    @Override
+    public void onNativeProcessExited(NativeError error) {
+        mainHandler.post(() -> {
+            if (running) {
+                settings.setLastError(error.toString());
+                stopProxy();
+            }
+        });
+    }
+
+    private void startProxy(Intent intent) {
+        if (running) {
+            return;
+        }
+        startAsForeground();
+
+        String ticket = intent != null ? intent.getStringExtra(Constant.EXTRA_TICKET) : null;
+        String username = intent != null ? intent.getStringExtra(Constant.EXTRA_USER) : null;
+        String password = intent != null ? intent.getStringExtra(Constant.EXTRA_PASSWORD) : null;
+
+        if (ticket == null || ticket.isEmpty()) {
+            fail("ticket missing");
+            return;
+        }
+
+        boolean vpnMode = settings.getMode() == Mode.VPN;
+        localPort = settings.getPort();
+        InetSocketAddress bindAddress = new InetSocketAddress(settings.getHost(), localPort);
+
+        try {
+            proxyRunner.start(bindAddress, settings.getDnsServers(), ticket);
+        } catch (IOException e) {
+            Log.e(TAG, "failed to start dumbpipe", e);
+            fail("failed to start dumbpipe");
+            return;
+        }
+
+        if (!PortProbe.waitForPort(
+                new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, localPort),
+                PORT_WAIT_TIMEOUT_MS,
+                proxyRunner::isRunning)) {
+            fail("dumbpipe did not become ready");
+            return;
+        }
+
+        if (vpnMode) {
+            if (!establishVpn()) {
+                fail("failed to establish VPN");
+                return;
+            }
+            if (!startTun2Socks(username, password)) {
+                fail("failed to start tun2socks");
+                return;
+            }
+        }
+
+        running = true;
+        settings.clearLastError();
+        settings.setEnabled(true);
+    }
+
+    private void stopProxy() {
+        running = false;
+        settings.setEnabled(false);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+
+        if (tun2Socks.isRunning()) {
+            Log.d(TAG, "tun2socks stats: " + tun2Socks.getStats());
+            tun2Socks.stop();
+        }
+
+        if (tunFd != null) {
+            try {
+                tunFd.close();
+            } catch (IOException ignored) {
+            }
+            tunFd = null;
+        }
+
+        if (proxyRunner != null) {
+            proxyRunner.stop();
+        }
+
+        stopSelf();
+    }
+
+    private boolean establishVpn() {
+        Builder builder = new Builder();
+        builder.setBlocking(false);
+        builder.setMtu(Constant.TUN_MTU);
+        builder.addAddress(Constant.TUN_IPV4_ADDRESS.getHostAddress(), Constant.TUN_IPV4_PREFIX);
+        builder.addRoute("0.0.0.0", 0);
+        builder.addDnsServer(Constant.DNS_SERVER.getHostAddress());
+        builder.setSession("iroh-vpn");
+        try {
+            builder.addDisallowedApplication(getPackageName());
+        } catch (Exception ignored) {
+        }
+        tunFd = builder.establish();
+        return tunFd != null;
+    }
+
+    private boolean startTun2Socks(String username, String password) {
+        File configFile = new File(getCacheDir(), "tproxy.conf");
+        try {
+            Tun2SocksConfig config = Tun2SocksConfig.builder()
+                    .socks5(new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, localPort))
+                    .credentials(username, password)
+                    .build();
+            config.writeTo(configFile);
+        } catch (IOException e) {
+            Log.e(TAG, "failed to write tun2socks config", e);
+            return false;
+        }
+        return tun2Socks.start(configFile.getAbsolutePath(), tunFd.getFd());
+    }
+
+    private void fail(String message) {
+        Log.e(TAG, message);
+        settings.setLastError(message);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
     }
 
     private void startAsForeground() {
-        Notification notification = buildNotification();
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-            } else {
-                startForeground(NOTIFICATION_ID, notification);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "failed to start foreground", e);
-            Toast.makeText(this, R.string.foreground_start_failed, Toast.LENGTH_LONG).show();
-            stopSelf();
-        }
-    }
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
-    private Notification buildNotification() {
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, getString(R.string.app_name))
-                .setSmallIcon(R.drawable.ic_notification)
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.notification_title))
                 .setContentText(getString(R.string.notification_text))
-                .setOngoing(true)
-                .setOnlyAlertOnce(true);
-        return b.build();
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentIntent(pendingIntent)
+                .build();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
     }
 
     private void createNotificationChannel() {
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    getString(R.string.app_name), getString(R.string.notification_channel_name),
-                    NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription(getString(R.string.notification_channel_description));
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            nm.createNotificationChannel(channel);
+                    CHANNEL_ID,
+                    getString(R.string.notification_channel_name),
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            manager.createNotificationChannel(channel);
         }
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
     }
 }

@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/iroh-ffi" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/iroh-socks" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dumbpipe" vcs="Git" />
   </component>
 </project>

@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "su.weavedwires.iroh.vpn"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -25,9 +25,16 @@ android {
             }
         }
     }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true
+        }
+        resources {
+            excludes += setOf(
+                "META-INF/io.netty.versions.properties",
+                "META-INF/INDEX.LIST"
+            )
         }
     }
     compileOptions {
@@ -43,6 +50,8 @@ dependencies {
     implementation(libs.material)
     implementation(libs.recyclerview)
     implementation(libs.security.crypto)
+    implementation(libs.netty.handler.proxy)
+    implementation(libs.netty.transport.native.epoll)
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)

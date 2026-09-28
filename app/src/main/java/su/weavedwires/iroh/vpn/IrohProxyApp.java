@@ -1,20 +1,30 @@
 package su.weavedwires.iroh.vpn;
 
-import android.app.Application;
+import static su.weavedwires.iroh.vpn.Constant.IROH_BINARY_NAME;
 
-import su.weavedwires.iroh.vpn.proxy.ProxyController;
+import android.app.Application;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.IOException;
+
+import su.weavedwires.iroh.vpn.nativ.BinaryRunnerSingleton;
+import su.weavedwires.iroh.vpn.proxy.ProxyRunner;
 
 public class IrohProxyApp extends Application {
-    private ProxyController proxyController;
+    private final BinaryRunnerSingleton<ProxyRunner> proxyRunner = new BinaryRunnerSingleton<>();
 
-    public ProxyController getProxyController() {
-        if (proxyController == null) {
-            synchronized (this) {
-                if (proxyController == null) {
-                    proxyController = new ProxyController(this);
-                }
-            }
+    public ProxyRunner getProxyRunner() {
+        try {
+            return proxyRunner.getOrCreateInstance(
+                    new File(getApplicationInfo().nativeLibraryDir),
+                    getFilesDir(),
+                    IROH_BINARY_NAME,
+                    ProxyRunner::new
+            );
+        } catch (IOException e) {
+            Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            throw new RuntimeException();
         }
-        return proxyController;
     }
 }
