@@ -2,7 +2,7 @@
 
 [English](README.md) | [Русский](README-ru.md)
 
-An Android app that runs a local SOCKS5 proxy on your phone, with its upstream being a remote node (peer) via [iroh](https://www.iroh.computer/). In short: the app connects your phone to someone else's (or your own) exit node, and traffic reaches the internet from there.
+An Android app that sets up a proxy tunnel on your phone via a SOCKS proxy using [iroh](https://www.iroh.computer/). In short: the app connects your phone to someone else's (or your own) exit node, and traffic reaches the internet from there.
 
 The exit node **does not need a white (static) address**. It can be located anywhere: at home, if your home internet has fewer restrictions, or classically on a VPS. The protocol doesn't care — the connection is established via a ticket rather than `IP:port`.
 
