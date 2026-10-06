@@ -2,7 +2,7 @@
 
 [English](README.md) | [Русский](README-ru.md)
 
-An Android app that sets up a proxy tunnel on your phone via a SOCKS proxy using [iroh](https://www.iroh.computer/). In short: the app connects your phone to someone else's (or your own) exit node, and traffic reaches the internet from there.
+An Android app that routes traffic through a SOCKS tunnel over [iroh](https://www.iroh.computer/). Simply put, it routes your phone's traffic to another computer, from which the traffic is then sent to the external network.
 
 The exit node **does not need a white (static) address**. It can be located anywhere: at home, if your home internet has fewer restrictions, or classically on a VPS. The protocol doesn't care — the connection is established via a ticket rather than `IP:port`.
 
@@ -11,13 +11,13 @@ The exit node **does not need a white (static) address**. It can be located anyw
 1. Get a link like this from the peer owner:
 
    ```
-   irohsocks://user:password@ticket#name
+   irohsocks://<user>:<password>@<ticket>#<name>
    ```
 
    Links like this are also valid:
 
    ```
-   irohsocks://ticket#name
+   irohsocks://<ticket>#<name>
    ```
 
 2. Add the connection in one of the following ways:
