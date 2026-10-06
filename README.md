@@ -1,86 +1,88 @@
 # Ir0h proxy
 
-Android-приложение, которое поднимает на телефоне локальный SOCKS5-прокси, а его выход — удалённый узел (пир) через [iroh](https://www.iroh.computer/). Проще говоря: приложение соединяет ваш телефон с чужой (или своей) выходной нодой, и трафик уходит в интернет уже оттуда.
+[English](README.md) | [Русский](README-ru.md)
 
-Выходной узел **не обязан иметь белый статический адрес**. Он может находиться где угодно: дома, если на домашнем интернете ограничений меньше, или классически на VPS. Протоколу это без разницы — связь устанавливается по тикету, а не по `IP:порт`.
+An Android app that runs a local SOCKS5 proxy on your phone, with its upstream being a remote node (peer) via [iroh](https://www.iroh.computer/). In short: the app connects your phone to someone else's (or your own) exit node, and traffic reaches the internet from there.
 
-## Как пользоваться
+The exit node **does not need a white (static) address**. It can be located anywhere: at home, if your home internet has fewer restrictions, or classically on a VPS. The protocol doesn't care — the connection is established via a ticket rather than `IP:port`.
 
-1. Получите у владельца пира ссылку вида:
+## How to use
 
-   ```
-   irohsocks://логин:пароль@тикет#имя
-   ```
-   
-   Так же допустимы ссылки вида:
+1. Get a link like this from the peer owner:
 
    ```
-   irohsocks://тикет#имя
+   irohsocks://user:password@ticket#name
    ```
 
-2. Добавьте подключение одним из способов:
-   - **Вставить из буфера** — скопировали ссылку, приложение само её разберёт.
-   - **Открыть ссылку** — если `irohsocks://…` открыть как ссылку, подключение добавится автоматически.
-   - **Добавить вручную** — ввести тикет (и при необходимости логин/пароль/название).
+   Links like this are also valid:
 
-3. Подключайтесь и наслаждайтесь свободным интернетом
+   ```
+   irohsocks://ticket#name
+   ```
 
-Сохранённых подключений может быть несколько — переключайтесь между ними в списке.
+2. Add the connection in one of the following ways:
+   - **Paste from clipboard** — copy the link, the app parses it automatically.
+   - **Open the link** — if `irohsocks://…` is opened as a link, the connection is added automatically.
+   - **Add manually** — enter the ticket (and login/password/name if needed).
 
-## Настройки
+3. Connect and enjoy the free internet.
 
-- **Режим** — VPN или Proxy (по умолчанию VPN).
-- **Хост** — `localhost` (`127.0.0.1`, принимать подключения только с этого же телефона) или `0.0.0.0` (принимать из локальной сети).
-- **Порт** — локальный порт SOCKS5, по умолчанию `2081`.
-- **DNS-серверы** — список первичных DNS (см. ниже).
+There can be several saved connections — switch between them in the list.
 
-## Как это устроено
+## Settings
 
-Всего возможно 2 схемы подключения
+- **Mode** — VPN or Proxy (VPN by default).
+- **Host** — `localhost` (`127.0.0.1`, accept connections only from this phone) or `0.0.0.0` (accept from the local network).
+- **Port** — local SOCKS5 port, `2081` by default.
+- **DNS servers** — list of primary DNS (see below).
+
+## How it works
+
+Two connection schemes are possible in total:
 
 ```
-tun2socks  ->  SOCKS  ->  (over iroh) relay  -> (over iroh) SOCKS-сервер на выходной ноде
+tun2socks  ->  SOCKS  ->  (over iroh) relay  -> (over iroh) SOCKS server on the exit node
 ```
 
 ```
-tun2socks  ->  SOCKS  ->  (over iroh) SOCKS-сервер на выходной ноде
+tun2socks  ->  SOCKS  ->  (over iroh) SOCKS server on the exit node
 ```
 
-Выбор подходящей схемы происходит автоматически, и зависит от возможности подключиться напрямую к выходной ноде
+The appropriate scheme is chosen automatically, depending on whether a direct connection to the exit node is possible.
 
-### Что такое iroh
+### What iroh is
 
-iroh — это транспорт поверх **QUIC**. Ключевые моменты:
+iroh is a transport built on top of **QUIC**. Key points:
 
-- Соединение **сквозное и шифрованное** (QUIC/TLS). Промежуточные узлы не видят содержимое трафика.
-- Адресация идёт по **тикету**, а не по `IP:порт`. Тикет содержит идентификатор узла (его публичный ключ), поэтому выходной ноде не нужен белый статический адрес.
-- iroh сначала пытается установить **прямое P2P-соединение** между телефоном и пиром ([hole punching](https://www.iroh.computer/)).
-- Если напрямую не получается (жёсткий NAT, ограничения сети) — соединение может идти **через релей**. Релей не обязателен и используется не всегда: он нужен для координации установки соединения и как запасной путь, когда прямой канал недоступен.
+- The connection is **end-to-end and encrypted** (QUIC/TLS). Intermediate nodes cannot see the traffic contents.
+- Addressing is done via a **ticket**, not `IP:port`. The ticket contains the node identifier (its public key), so the exit node does not need a white static address.
+- iroh first tries to establish a **direct P2P connection** between the phone and the peer ([hole punching](https://www.iroh.computer/)).
+- If a direct connection is not possible (strict NAT, network restrictions) — the connection may go **through a relay**. A relay is not mandatory and is not always used: it is needed to coordinate connection establishment and as a fallback path when the direct channel is unavailable.
 
-То есть релей в пути — это возможный, но не обязательный элемент схемы.
+So a relay in the path is a possible but not required element of the scheme.
 
-## Важно про DNS
+## Important note about DNS
 
-Первичные DNS-серверы в настройках — это **не** замена системного DNS устройства. Это первичный DNS, который нужен только для того, чтобы в условиях ограничений резолвить адрес релея из домена. Больше нигде он не используется.
+The primary DNS servers in settings are **not** a replacement for the device's system DNS. They are primary DNS, needed only to resolve the relay's address from a domain under restricted conditions. They are not used anywhere else.
 
-DNS, которые используются непосредственн для трафика, зависят от настроек устройства и выходной ноды. 
+The DNS actually used for traffic depends on the device and exit node settings.
 
-Значение первичных DNS по умолчанию — `77.88.8.8` и `77.88.8.1`, его можно изменить.
+The default primary DNS values are `77.88.8.8` and `77.88.8.1`, and can be changed.
 
-## Про DPI и отпечаток
+## About DPI and fingerprints
 
-Непрямое подключение может помочь обойти некоторые ограничения:
+An indirect connection can help bypass some restrictions:
 
-- **Путает DPI.** Трафик — это QUIC с relay и hole punching, а не https-образные сигнатуры AmnesiaWG или VLESS, по которым обычно режут VPN/Proxy.
-- **Нехарактерный отпечаток.** Нет опознаваемого протокольного паттерна, за который цепляются блокировщики.
-- **Iroh не является целью DPI** Средства блокировок рассчитаны на известные VPN/Proxy-протоколы, а не на iroh.
+- **Confuses DPI.** The traffic is QUIC with relay and hole punching, rather than the https-like signatures of AmnesiaWG or VLESS, which VPNs/Proxies are usually blocked by.
+- **Uncharacteristic fingerprint.** There is no recognizable protocol pattern for blockers to latch onto.
+- **Iroh is not a DPI target.** Blocking tools target known VPN/Proxy protocols, not iroh.
 
-## Приватность и хранение
+## Privacy and storage
 
-Туннель шифруется средствами iroh, а потому **полностью непрозрачен** снаружи.
+The tunnel is encrypted by iroh's means, and is therefore **completely opaque** from the outside.
 
-## Легальная часть
+## Legal note
 
-Разработчик не призывает нарушать законодательство каких-либо государств и правила компаний. Перед использованием рекомендуется проверить, законно ли обходить DPI на территории вашего государства и в вашей компании. Разработчик не несёт ответственности за любое использование программы пользователем, в том числе в корыстных целях. Код является свободным.
+The developer does not encourage violating the laws of any state or the rules of companies. Before use, it is recommended to verify whether bypassing DPI is legal in your state and in your company. The developer bears no responsibility for any use of the program by the user, including for illegal targets. The code is free.
 
-> С большой силой приходит и большая ответственность.
+> With great power comes great responsibility.
