@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn;
+package su.weavedwires.iroh.vpn.constant;
 
 import java.net.InetAddress;
 

@@ -11,14 +11,9 @@ public abstract class NativeTool {
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final List<NativeErrorListener> errorListeners = new CopyOnWriteArrayList<>();
-    private volatile NativeError lastError;
 
     public boolean isRunning() {
         return running.get();
-    }
-
-    public NativeError getLastError() {
-        return lastError;
     }
 
     public void addListener(NativeErrorListener listener) {
@@ -33,12 +28,7 @@ public abstract class NativeTool {
         running.set(value);
     }
 
-    protected void clearError() {
-        lastError = null;
-    }
-
     protected void pushError(NativeError error) {
-        lastError = error;
         for (NativeErrorListener listener : errorListeners) {
             listener.onNativeError(error);
         }

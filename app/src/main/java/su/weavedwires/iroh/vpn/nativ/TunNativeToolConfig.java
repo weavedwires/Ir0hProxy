@@ -8,7 +8,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
-import su.weavedwires.iroh.vpn.Constant;
+import su.weavedwires.iroh.vpn.constant.Constant;
 
 public final class TunNativeToolConfig {
 

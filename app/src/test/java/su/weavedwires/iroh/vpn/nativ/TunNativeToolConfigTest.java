@@ -1,14 +1,13 @@
 package su.weavedwires.iroh.vpn.nativ;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.net.InetSocketAddress;
-
 import org.junit.Test;
 
-import su.weavedwires.iroh.vpn.Constant;
+import java.net.InetSocketAddress;
+
+import su.weavedwires.iroh.vpn.constant.Constant;
 
 public class TunNativeToolConfigTest {
 

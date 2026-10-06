@@ -20,10 +20,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.textfield.TextInputEditText;
 
-import su.weavedwires.iroh.vpn.Constant;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.model.Connection;
-import su.weavedwires.iroh.vpn.model.ConnectionStore;
+import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 
 public class ConnectionConfigActivity extends AppCompatActivity {
@@ -32,7 +30,6 @@ public class ConnectionConfigActivity extends AppCompatActivity {
     private TextInputEditText ticketInput;
     private TextInputEditText userInput;
     private TextInputEditText passwordInput;
-    private ConnectionStore connectionStore;
     private int editIndex = -1;
 
     @Override
@@ -47,8 +44,6 @@ public class ConnectionConfigActivity extends AppCompatActivity {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
-
-        connectionStore = new ConnectionStore(this);
 
         editIndex = getIntent() != null
                 ? getIntent().getIntExtra(Constant.EXTRA_INDEX, -1)
@@ -103,12 +98,14 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         String user = getText(userInput);
         String password = getText(passwordInput);
 
-        Connection connection = new Connection(name, user, password, ticket);
-        if (editIndex >= 0) {
-            connectionStore.update(editIndex, connection);
-        } else {
-            connectionStore.add(connection);
-        }
+        Intent result = new Intent()
+                .putExtra(Constant.EXTRA_INDEX, editIndex)
+                .putExtra(Constant.EXTRA_DELETED, false)
+                .putExtra(Constant.EXTRA_NAME, name)
+                .putExtra(Constant.EXTRA_USER, user)
+                .putExtra(Constant.EXTRA_PASSWORD, password)
+                .putExtra(Constant.EXTRA_TICKET, ticket);
+        setResult(RESULT_OK, result);
         finish();
     }
 
@@ -117,7 +114,10 @@ public class ConnectionConfigActivity extends AppCompatActivity {
                 .setTitle(R.string.delete_confirm_title)
                 .setMessage(R.string.delete_confirm_message)
                 .setPositiveButton(R.string.remove, (dialog, which) -> {
-                    connectionStore.delete(editIndex);
+                    Intent result = new Intent()
+                            .putExtra(Constant.EXTRA_INDEX, editIndex)
+                            .putExtra(Constant.EXTRA_DELETED, true);
+                    setResult(RESULT_OK, result);
                     finish();
                 })
                 .setNegativeButton(R.string.cancel, null)
@@ -132,7 +132,7 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("irohsocks-link", link.toString());
         clipboard.setPrimaryClip(clip);
-        Toast.makeText(this, "Скопировано в буфер обмена", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show();
 
         Intent share = new Intent(Intent.ACTION_SEND);
         share.putExtra(Intent.EXTRA_TEXT, link.toString());
@@ -140,7 +140,7 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         try {
             startActivity(share);
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "Нет подходящих приложений", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.no_share_apps, Toast.LENGTH_LONG).show();
         }
     }
 

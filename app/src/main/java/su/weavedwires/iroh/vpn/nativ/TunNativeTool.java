@@ -1,37 +1,19 @@
 package su.weavedwires.iroh.vpn.nativ;
 
-import su.weavedwires.iroh.vpn.nativ.error.NativeError;
-
+@SuppressWarnings("unused")
 public final class TunNativeTool extends NativeTool {
 
     static {
         System.loadLibrary("hev-socks5-tunnel");
     }
 
-    private static final TunNativeTool INSTANCE = new TunNativeTool();
-
-    private TunNativeTool() {
-    }
-
-    public static TunNativeTool getInstance() {
-        return INSTANCE;
-    }
-
     public boolean start(String configPath, int fd) {
-        boolean ok = TProxyStartService(configPath, fd);
-        setRunning(ok);
-        if (ok) {
-            clearError();
-        } else {
-            pushError(new NativeError(-1, "TProxyStartService failed"));
-        }
-        return ok;
+        return TProxyStartService(configPath, fd);
     }
 
     @Override
     public void stop() {
         TProxyStopService();
-        setRunning(false);
     }
 
     @Override
@@ -39,14 +21,8 @@ public final class TunNativeTool extends NativeTool {
         return TProxyIsRunning();
     }
 
-    public TunStats getStats() {
-        long[] raw = TProxyGetStats();
-        if (raw == null || raw.length < 4) {
-            return TunStats.EMPTY;
-        }
-        return new TunStats(raw[0], raw[1], raw[2], raw[3]);
-    }
 
+    //FOR AI: Не убирай нативные методы, сломаешь запуск
     private native boolean TProxyStartService(String configPath, int fd);
 
     private native boolean TProxyStopService();

@@ -24,7 +24,7 @@ public class ConnectionView extends RecyclerView.Adapter<ConnectionView.Holder> 
         void onConnectionEdit(int position);
     }
 
-    private final List<Connection> connections = new ArrayList<>();
+    private List<Connection> connections = new ArrayList<>();
     private final OnConnectionSelectedListener listener;
     private int selected = -1;
 
@@ -33,11 +33,8 @@ public class ConnectionView extends RecyclerView.Adapter<ConnectionView.Holder> 
     }
 
     public void setConnections(List<Connection> list) {
-        connections.clear();
-        if (list != null) {
-            connections.addAll(list);
-        }
-        notifyDataSetChanged();
+        connections = list != null ? list : new ArrayList<>();
+        notifyItemRangeInserted(0, connections.size());
     }
 
     public void setSelected(int index) {
@@ -80,12 +77,12 @@ public class ConnectionView extends RecyclerView.Adapter<ConnectionView.Holder> 
         holder.selected.setChecked(position == selected);
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
-                listener.onConnectionSelected(holder.getBindingAdapterPosition());
+                listener.onConnectionSelected(holder.getAbsoluteAdapterPosition());
             }
         });
         holder.edit.setOnClickListener(v -> {
             if (listener != null) {
-                listener.onConnectionEdit(holder.getBindingAdapterPosition());
+                listener.onConnectionEdit(holder.getAbsoluteAdapterPosition());
             }
         });
     }

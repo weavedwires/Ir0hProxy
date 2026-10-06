@@ -22,11 +22,11 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
-import su.weavedwires.iroh.vpn.Constant;
-import su.weavedwires.iroh.vpn.HostScope;
-import su.weavedwires.iroh.vpn.Mode;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.Settings;
+import su.weavedwires.iroh.vpn.constant.Constant;
+import su.weavedwires.iroh.vpn.constant.HostScope;
+import su.weavedwires.iroh.vpn.constant.Mode;
 
 public class SettingsActivity extends AppCompatActivity {
 

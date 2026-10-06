@@ -9,8 +9,6 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.net.VpnService;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
@@ -19,14 +17,15 @@ import androidx.core.app.NotificationCompat;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import su.weavedwires.iroh.vpn.Constant;
 import su.weavedwires.iroh.vpn.IrohProxyApp;
-import su.weavedwires.iroh.vpn.Mode;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.Settings;
 import su.weavedwires.iroh.vpn.activity.MainActivity;
-import su.weavedwires.iroh.vpn.nativ.PortProbe;
+import su.weavedwires.iroh.vpn.constant.Constant;
+import su.weavedwires.iroh.vpn.constant.Mode;
 import su.weavedwires.iroh.vpn.nativ.TunNativeTool;
 import su.weavedwires.iroh.vpn.nativ.TunNativeToolConfig;
 import su.weavedwires.iroh.vpn.nativ.error.NativeError;
@@ -37,19 +36,13 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     private static final String TAG = "ProxyService";
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "iroh_vpn";
-    private static final long PORT_WAIT_TIMEOUT_MS = 15_000L;
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final Object lifecycleLock = new Object();
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
     private Settings settings;
     private ProxyNativeTool proxyRunner;
     private TunNativeTool tunNativeTool;
     private ParcelFileDescriptor tunFd;
-    private volatile boolean running;
-    private volatile boolean cancelStart;
-    private volatile Thread startThread;
-    private volatile Thread stopThread;
     private int localPort;
 
     @Override
@@ -60,186 +53,97 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         proxyRunner = ((IrohProxyApp) getApplication()).getProxyRunner();
         proxyRunner.addListener(this);
         tunNativeTool = ((IrohProxyApp) getApplication()).getTun2Socks();
-        tunNativeTool.addListener(this);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && Constant.ACTION_STOP.equals(intent.getAction())) {
-            spawnStop();
+            worker.execute(this::stopProxy);
             return START_NOT_STICKY;
         }
         startAsForeground();
-        spawnStart(intent);
+        worker.execute(() -> startProxy(intent));
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        cancelStart = true;
-        Thread t = startThread;
-        if (t != null) {
-            t.interrupt();
-        }
         if (proxyRunner != null) {
             proxyRunner.removeListener(this);
         }
-        if (tunNativeTool != null) {
-            tunNativeTool.removeListener(this);
-        }
+        worker.shutdown();
     }
 
     @Override
     public void onRevoke() {
-        spawnStop();
+        worker.execute(this::stopProxy);
         super.onRevoke();
     }
 
     @Override
     public void onNativeError(NativeError error) {
-        mainHandler.post(() -> {
-            if (running) {
-                settings.setLastError(error.toString());
-                spawnStop();
-            }
-        });
-    }
-
-    private void spawnStart(Intent intent) {
-        synchronized (lifecycleLock) {
-            if (running || isAlive(startThread) || isAlive(stopThread)) {
-                return;
-            }
-            cancelStart = false;
-            Thread t = new Thread(() -> startProxy(intent), "proxy-start");
-            startThread = t;
-            t.start();
-        }
-    }
-
-    private void spawnStop() {
-        synchronized (lifecycleLock) {
-            if (isAlive(stopThread)) {
-                return;
-            }
-            cancelStart = true;
-            Thread start = startThread;
-            Thread t = new Thread(() -> {
-                if (start != null) {
-                    start.interrupt();
-                    try {
-                        start.join(3000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-                synchronized (lifecycleLock) {
-                    startThread = null;
-                }
-                stopProxy();
-            }, "proxy-stop");
-            stopThread = t;
-            t.start();
-        }
-    }
-
-    private static boolean isAlive(Thread t) {
-        return t != null && t.isAlive();
+        Log.e(TAG, error.toString());
+        worker.execute(() -> fail(error.toString()));
     }
 
     private void startProxy(Intent intent) {
+        if (proxyRunner.isRunning()) {
+            return;
+        }
+
+        String ticket = intent != null ? intent.getStringExtra(Constant.EXTRA_TICKET) : null;
+        String username = intent != null ? intent.getStringExtra(Constant.EXTRA_USER) : null;
+        String password = intent != null ? intent.getStringExtra(Constant.EXTRA_PASSWORD) : null;
+
+        if (ticket == null || ticket.isEmpty()) {
+            fail("ticket missing");
+            return;
+        }
+
+        boolean vpnMode = settings.getMode() == Mode.VPN;
+        localPort = settings.getPort();
+        InetSocketAddress bindAddress = new InetSocketAddress(settings.getHost(), localPort);
+
         try {
-            if (cancelStart) {
+            proxyRunner.start(bindAddress, settings.getDnsServers(), ticket);
+        } catch (IOException e) {
+            Log.e(TAG, "failed to start dumbpipe", e);
+            fail("failed to start dumbpipe");
+            return;
+        }
+
+        if (vpnMode) {
+            if (!establishVpn()) {
+                fail("failed to establish VPN");
                 return;
             }
-
-            String ticket = intent != null ? intent.getStringExtra(Constant.EXTRA_TICKET) : null;
-            String username = intent != null ? intent.getStringExtra(Constant.EXTRA_USER) : null;
-            String password = intent != null ? intent.getStringExtra(Constant.EXTRA_PASSWORD) : null;
-
-            if (ticket == null || ticket.isEmpty()) {
-                fail("ticket missing");
+            if (!startTun2Socks(username, password)) {
+                fail("failed to start tun2socks");
                 return;
-            }
-
-            boolean vpnMode = settings.getMode() == Mode.VPN;
-            localPort = settings.getPort();
-            InetSocketAddress bindAddress = new InetSocketAddress(settings.getHost(), localPort);
-
-            try {
-                proxyRunner.start(bindAddress, settings.getDnsServers(), ticket);
-            } catch (IOException e) {
-                Log.e(TAG, "failed to start dumbpipe", e);
-                if (!cancelStart) {
-                    fail("failed to start dumbpipe");
-                }
-                return;
-            }
-
-            if (!PortProbe.waitForPort(
-                    new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, localPort),
-                    PORT_WAIT_TIMEOUT_MS,
-                    () -> !cancelStart && proxyRunner.isRunning())) {
-                if (!cancelStart) {
-                    fail("dumbpipe did not become ready");
-                }
-                return;
-            }
-
-            if (cancelStart) {
-                return;
-            }
-
-            if (vpnMode) {
-                if (!establishVpn()) {
-                    if (!cancelStart) {
-                        fail("failed to establish VPN");
-                    }
-                    return;
-                }
-                if (cancelStart) {
-                    return;
-                }
-                if (!startTun2Socks(username, password)) {
-                    if (!cancelStart) {
-                        fail("failed to start tun2socks");
-                    }
-                    return;
-                }
-            }
-
-            if (cancelStart) {
-                return;
-            }
-
-            running = true;
-            settings.clearLastError();
-            settings.setEnabled(true);
-        } finally {
-            synchronized (lifecycleLock) {
-                if (startThread == Thread.currentThread()) {
-                    startThread = null;
-                }
             }
         }
+
+        broadcast(Constant.ACTION_PROXY_STARTED, null);
     }
 
     private void stopProxy() {
-        running = false;
-        settings.setEnabled(false);
         stopForeground(STOP_FOREGROUND_REMOVE);
-
         stopNativeTools();
-
+        broadcast(Constant.ACTION_PROXY_STOPPED, null);
         stopSelf();
     }
 
+    private void fail(String message) {
+        Log.e(TAG, message);
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopNativeTools();
+        stopSelf();
+        broadcast(Constant.ACTION_PROXY_ERROR, message);
+    }
+
     private void stopNativeTools() {
-        if (tunNativeTool.isRunning()) {
-            Log.d(TAG, "tun2socks stats: " + tunNativeTool.getStats());
-            tunNativeTool.stop();
-        }
+        tunNativeTool.stop();
 
         if (tunFd != null) {
             try {
@@ -254,6 +158,15 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         }
     }
 
+    private void broadcast(String action, String error) {
+        Intent intent = new Intent(action).setPackage(getPackageName());
+        if (error != null) {
+            intent.putExtra(Constant.EXTRA_ERROR, error);
+        }
+        sendBroadcast(intent);
+    }
+
+    @SuppressWarnings("DataFlowIssue")
     private boolean establishVpn() {
         Builder builder = new Builder();
         builder.setBlocking(false);
@@ -283,16 +196,6 @@ public class ProxyService extends VpnService implements NativeErrorListener {
             return false;
         }
         return tunNativeTool.start(configFile.getAbsolutePath(), tunFd.getFd());
-    }
-
-    private void fail(String message) {
-        Log.e(TAG, message);
-        running = false;
-        settings.setLastError(message);
-        settings.setEnabled(false);
-        stopForeground(STOP_FOREGROUND_REMOVE);
-        stopNativeTools();
-        stopSelf();
     }
 
     private void startAsForeground() {

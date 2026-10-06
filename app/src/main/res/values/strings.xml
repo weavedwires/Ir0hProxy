@@ -1,6 +1,5 @@
 <resources>
-    <string name="app_name">Ir0h VPN</string>
-    <string name="app_name_with_nick">Ir0h VPN by Weavedwires</string>
+    <string name="app_name">Ir0h proxy</string>
     <string name="endpoint_key">Ключ конечной точки</string>
     <string name="vpn">VPN</string>
     <string name="proxy">Proxy</string>
@@ -44,4 +43,6 @@
     <string name="delete_confirm_title">Удалить подключение?</string>
     <string name="delete_confirm_message">Это действие невозможно отменить.</string>
     <string name="cancel">Отмена</string>
+    <string name="copied_to_clipboard">Скопировано в буфер обмена</string>
+    <string name="no_share_apps">Нет подходящих приложений</string>
 </resources>

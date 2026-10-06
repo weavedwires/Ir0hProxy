@@ -12,32 +12,63 @@ import org.json.JSONException;
 import java.util.ArrayList;
 import java.util.List;
 
-import su.weavedwires.iroh.vpn.Constant;
+import su.weavedwires.iroh.vpn.constant.Constant;
 
 public class ConnectionStore {
 
     private final SharedPreferences prefs;
+    private List<Connection> connections;
 
     public ConnectionStore(Context context) {
         prefs = encryptedPrefs(context);
     }
 
     public List<Connection> load() {
-        List<Connection> connections = new ArrayList<>();
+        if (connections == null) {
+            connections = read();
+        }
+        return connections;
+    }
+
+    public int add(Connection connection) {
+        List<Connection> list = load();
+        list.add(connection);
+        persist();
+        return list.size() - 1;
+    }
+
+    public void update(int index, Connection connection) {
+        List<Connection> list = load();
+        if (index >= 0 && index < list.size()) {
+            list.set(index, connection);
+            persist();
+        }
+    }
+
+    public void delete(int index) {
+        List<Connection> list = load();
+        if (index >= 0 && index < list.size()) {
+            list.remove(index);
+            persist();
+        }
+    }
+
+    private List<Connection> read() {
+        List<Connection> list = new ArrayList<>();
         String raw = prefs.getString(Constant.CONNECTIONS, null);
         if (raw != null && !raw.isEmpty()) {
             try {
                 JSONArray array = new JSONArray(raw);
                 for (int i = 0; i < array.length(); i++) {
-                    connections.add(Connection.fromJson(array.getJSONObject(i)));
+                    list.add(Connection.fromJson(array.getJSONObject(i)));
                 }
             } catch (JSONException ignored) {
             }
         }
-        return connections;
+        return list;
     }
 
-    public void save(List<Connection> connections) {
+    private void persist() {
         JSONArray array = new JSONArray();
         for (Connection connection : connections) {
             array.put(connection.toJson());
@@ -45,28 +76,7 @@ public class ConnectionStore {
         prefs.edit().putString(Constant.CONNECTIONS, array.toString()).apply();
     }
 
-    public void add(Connection connection) {
-        List<Connection> connections = load();
-        connections.add(connection);
-        save(connections);
-    }
-
-    public void update(int index, Connection connection) {
-        List<Connection> connections = load();
-        if (index >= 0 && index < connections.size()) {
-            connections.set(index, connection);
-            save(connections);
-        }
-    }
-
-    public void delete(int index) {
-        List<Connection> connections = load();
-        if (index >= 0 && index < connections.size()) {
-            connections.remove(index);
-            save(connections);
-        }
-    }
-
+    @SuppressWarnings("deprecation")
     private static SharedPreferences encryptedPrefs(Context context) {
         try {
             MasterKey masterKey = new MasterKey.Builder(context)

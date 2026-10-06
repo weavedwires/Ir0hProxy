@@ -17,7 +17,6 @@ public class BinaryNativeTool extends NativeTool {
     private final File workDir;
     private final File binary;
     private final ExecutorService monitorExecutor = Executors.newSingleThreadExecutor();
-    private volatile boolean stopping;
     private Process process;
 
     public BinaryNativeTool(File workDir, File binary) {
@@ -28,24 +27,27 @@ public class BinaryNativeTool extends NativeTool {
     protected void runProcess(CmdBuilder cmd) throws IOException {
         Log.i(tag, "starting: " + cmd);
 
-        stopping = false;
-        setRunning(true);
-        clearError();
-
         ProcessBuilder pb = new ProcessBuilder(cmd.toList());
         pb.redirectErrorStream(true);
         pb.directory(workDir);
         process = pb.start();
+
+        setRunning(true);
 
         monitorProcess();
     }
 
     @Override
     public void stop() {
-        stopping = true;
-        if (process != null) {
-            process.destroy();
-            process = null;
+        Process p = process;
+        process = null;
+        if (p != null) {
+            p.destroy();
+            try {
+                p.waitFor();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         setRunning(false);
     }
@@ -65,11 +67,7 @@ public class BinaryNativeTool extends NativeTool {
                 Log.d(binary.getName(), lastStr);
             }
         } catch (IOException e) {
-            if (stopping) {
-                Log.d(tag, "process stopped");
-            } else {
-                Log.w(tag, "lastStr reading process output", e);
-            }
+            Log.w(tag, "reading process output", e);
         }
         try {
             code = p.waitFor();
