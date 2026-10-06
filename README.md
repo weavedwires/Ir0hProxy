@@ -79,7 +79,7 @@ An indirect connection can help bypass some restrictions:
 
 ## Privacy and storage
 
-The tunnel is encrypted by iroh's means, and is therefore **completely opaque** from the outside.
+The developer **does not collect** and **does not store** any data about you. You can read the source code and see for yourself
 
 ## Legal note
 
