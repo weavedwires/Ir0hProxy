@@ -1,5 +1,6 @@
 package su.weavedwires.iroh.vpn.activity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,7 +13,6 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.TextInputEditText;
@@ -23,13 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.Settings;
+import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.HostScope;
 import su.weavedwires.iroh.vpn.constant.Mode;
 
 public class SettingsActivity extends AppCompatActivity {
-
     private MaterialSwitch hostSwitch;
     private TextInputEditText portInput;
     private MaterialSwitch vpnSwitch;
@@ -55,7 +54,6 @@ public class SettingsActivity extends AppCompatActivity {
         portInput = findViewById(R.id.port_input);
         vpnSwitch = findViewById(R.id.vpn_switch);
         dnsContainer = findViewById(R.id.dns_container);
-        MaterialButton saveButton = findViewById(R.id.save_button);
 
         hostSwitch.setChecked(settings.getHostScope() == HostScope.PUBLIC);
         portInput.setText(Integer.toString(settings.getPort()));
@@ -66,7 +64,13 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         findViewById(R.id.add_dns).setOnClickListener(v -> addDnsField(""));
-        saveButton.setOnClickListener(v -> save());
+        findViewById(R.id.apps).setOnClickListener(v -> startActivity(new Intent(this, AppChooserActivity.class)));
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        save();
     }
 
     private void addDnsField(String value) {
@@ -85,7 +89,6 @@ public class SettingsActivity extends AppCompatActivity {
         settings.setPort(parsePort());
         settings.setDnsServers(collectDns());
         settings.setMode(vpnSwitch.isChecked() ? Mode.VPN : Mode.PROXY);
-        finish();
     }
 
     private int parsePort() {
@@ -115,4 +118,5 @@ public class SettingsActivity extends AppCompatActivity {
         }
         return servers;
     }
+
 }

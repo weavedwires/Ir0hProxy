@@ -45,4 +45,5 @@
     <string name="cancel">Отмена</string>
     <string name="copied_to_clipboard">Скопировано в буфер обмена</string>
     <string name="no_share_apps">Нет подходящих приложений</string>
+    <string name="proxying_applications">Проксируемые приложения</string>
 </resources>

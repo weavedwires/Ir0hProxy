@@ -8,6 +8,7 @@ import org.junit.Test;
 import java.net.InetSocketAddress;
 
 import su.weavedwires.iroh.vpn.constant.Constant;
+import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
 
 public class TunNativeToolConfigTest {
 

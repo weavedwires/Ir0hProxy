@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.model;
+package su.weavedwires.iroh.vpn.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -9,10 +9,13 @@ import androidx.security.crypto.MasterKey;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 
 import su.weavedwires.iroh.vpn.constant.Constant;
+import su.weavedwires.iroh.vpn.model.Connection;
 
 public class ConnectionStore {
 
@@ -20,7 +23,7 @@ public class ConnectionStore {
     private List<Connection> connections;
 
     public ConnectionStore(Context context) {
-        prefs = encryptedPrefs(context);
+        prefs = getPrefs(context);
     }
 
     public List<Connection> load() {
@@ -76,20 +79,24 @@ public class ConnectionStore {
         prefs.edit().putString(Constant.CONNECTIONS, array.toString()).apply();
     }
 
-    @SuppressWarnings("deprecation")
-    private static SharedPreferences encryptedPrefs(Context context) {
+    private static SharedPreferences getPrefs(Context context) {
         try {
-            MasterKey masterKey = new MasterKey.Builder(context)
-                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                    .build();
-            return EncryptedSharedPreferences.create(
-                    context,
-                    Constant.CONNECTIONS_PREFS,
-                    masterKey,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
+            return getEncryptedRefs(context);
         } catch (Exception e) {
             return context.getSharedPreferences(Constant.CONNECTIONS_PREFS, Context.MODE_PRIVATE);
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static SharedPreferences getEncryptedRefs(Context context) throws GeneralSecurityException, IOException {
+        MasterKey masterKey = new MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build();
+        return EncryptedSharedPreferences.create(
+                context,
+                Constant.CONNECTIONS_PREFS,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
     }
 }

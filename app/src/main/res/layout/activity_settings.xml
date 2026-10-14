@@ -140,13 +140,14 @@
                 android:textSize="20sp" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/save_button"
+                android:id="@+id/apps"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/save"
+                android:layout_marginTop="8dp"
+                android:text="@string/proxying_applications"
                 android:textSize="20sp"
-                app:cornerRadius="12dp" />
+                android:padding="12dp"
+                app:cornerRadius="16dp" />
 
         </LinearLayout>
     </ScrollView>

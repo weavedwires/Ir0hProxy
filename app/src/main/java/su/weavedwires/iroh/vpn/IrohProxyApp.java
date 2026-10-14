@@ -7,7 +7,8 @@ import android.widget.Toast;
 
 import java.io.File;
 
-import su.weavedwires.iroh.vpn.nativ.TunNativeTool;
+import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.tun.TunNativeTool;
 import su.weavedwires.iroh.vpn.proxy.ProxyNativeTool;
 
 public class IrohProxyApp extends Application {

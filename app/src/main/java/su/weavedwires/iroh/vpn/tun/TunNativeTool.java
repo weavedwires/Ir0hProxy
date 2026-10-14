@@ -1,4 +1,6 @@
-package su.weavedwires.iroh.vpn.nativ;
+package su.weavedwires.iroh.vpn.tun;
+
+import su.weavedwires.iroh.vpn.nativ.NativeTool;
 
 @SuppressWarnings("unused")
 public final class TunNativeTool extends NativeTool {

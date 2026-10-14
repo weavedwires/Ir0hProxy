@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.nativ;
+package su.weavedwires.iroh.vpn.tun;
 
 import java.io.File;
 import java.io.FileOutputStream;

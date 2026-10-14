@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn;
+package su.weavedwires.iroh.vpn.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -20,7 +20,7 @@ public class Settings {
     private final SharedPreferences prefs;
 
     public Settings(Context context) {
-        prefs = context.getSharedPreferences(Constant.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs = context.getSharedPreferences(Constant.SETTINGS_PREFS, Context.MODE_PRIVATE);
     }
 
     public InetAddress getHost() {

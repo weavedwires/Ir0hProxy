@@ -22,12 +22,12 @@ import java.util.concurrent.Executors;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.Settings;
+import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.activity.MainActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.Mode;
-import su.weavedwires.iroh.vpn.nativ.TunNativeTool;
-import su.weavedwires.iroh.vpn.nativ.TunNativeToolConfig;
+import su.weavedwires.iroh.vpn.tun.TunNativeTool;
+import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
 import su.weavedwires.iroh.vpn.nativ.error.NativeError;
 import su.weavedwires.iroh.vpn.nativ.error.NativeErrorListener;
 

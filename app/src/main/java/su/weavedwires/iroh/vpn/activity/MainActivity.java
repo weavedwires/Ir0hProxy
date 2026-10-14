@@ -34,10 +34,10 @@ import com.google.android.material.snackbar.Snackbar;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.Settings;
+import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
-import su.weavedwires.iroh.vpn.model.ConnectionStore;
+import su.weavedwires.iroh.vpn.repository.ConnectionStore;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
 
@@ -46,7 +46,6 @@ public class MainActivity extends AppCompatActivity {
     private Settings settings;
     private ConnectionStore connectionStore;
 
-    private RecyclerView connectionList;
     private ConnectionView connectionView;
     private FloatingActionButton enableButton;
     private String lastShownError;
@@ -100,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
         settings = new Settings(this);
         connectionStore = new ConnectionStore(this);
 
-        connectionList = findViewById(R.id.connection_list);
+        RecyclerView connectionList = findViewById(R.id.connection_list);
         enableButton = findViewById(R.id.enable_button);
 
         connectionView = new ConnectionView(new ConnectionView.OnConnectionSelectedListener() {
@@ -108,17 +107,17 @@ public class MainActivity extends AppCompatActivity {
             public void onConnectionSelected(int position) {
                 selectConnection(position);
             }
-
             @Override
             public void onConnectionEdit(int position) {
                 editConnection(position);
             }
         });
+
         connectionList.setLayoutManager(new LinearLayoutManager(this));
         connectionList.setAdapter(connectionView);
 
         enableButton.setOnClickListener(v -> toggleProxy());
-        findViewById(R.id.settings_button).setOnClickListener(v -> openSettings());
+        findViewById(R.id.settings_button).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.add_button).setOnClickListener(this::showAddMenu);
 
         initConnections();
@@ -240,10 +239,6 @@ public class MainActivity extends AppCompatActivity {
                 .putExtra(Constant.EXTRA_PASSWORD, connection.getPassword())
                 .putExtra(Constant.EXTRA_TICKET, connection.getTicket());
         editLauncher.launch(intent);
-    }
-
-    private void openSettings() {
-        startActivity(new Intent(this, SettingsActivity.class));
     }
 
     private void showAddMenu(View anchor) {

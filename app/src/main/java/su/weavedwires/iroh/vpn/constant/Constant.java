@@ -3,7 +3,7 @@ package su.weavedwires.iroh.vpn.constant;
 import java.net.InetAddress;
 
 public class Constant {
-    public static final String PREFS_NAME = "PREFS_NAME";
+    public static final String SETTINGS_PREFS = "SETTINGS_PREFS";
     public static final String CONNECTIONS_PREFS = "CONNECTIONS_PREFS";
     public static final String CONNECTIONS = "CONNECTIONS";
     public static final String SELECTED = "SELECTED";
