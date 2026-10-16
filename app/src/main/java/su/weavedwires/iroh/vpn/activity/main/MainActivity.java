@@ -41,7 +41,7 @@ import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
-import su.weavedwires.iroh.vpn.proxy.ProxyStateStore;
+import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
 import su.weavedwires.iroh.vpn.repository.ConnectionStore;
 import su.weavedwires.iroh.vpn.repository.Settings;
 
@@ -105,17 +105,17 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
 
         handleIncomingLink(getIntent());
 
-        ProxyStateStore proxyStateStore = ((IrohProxyApp) getApplication()).getProxyStateStore();
+        ProxyStateBus proxyStateBus = ((IrohProxyApp) getApplication()).getProxyStateStore();
         getLifecycle().addObserver(new DefaultLifecycleObserver() {
             @Override
             public void onStart(@NonNull LifecycleOwner owner) {
-                proxyStateStore.addListener(MainActivity.this);
+                proxyStateBus.addListener(MainActivity.this);
                 syncState();
             }
 
             @Override
             public void onStop(@NonNull LifecycleOwner owner) {
-                proxyStateStore.removeListener(MainActivity.this);
+                proxyStateBus.removeListener(MainActivity.this);
             }
         });
     }

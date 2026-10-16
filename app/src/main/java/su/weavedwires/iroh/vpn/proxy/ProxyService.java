@@ -46,7 +46,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     private Settings settings;
     private ProxyNativeTool proxyRunner;
     private TunNativeTool tunNativeTool;
-    private ProxyStateStore proxyStateStore;
+    private ProxyStateBus proxyStateBus;
     private ParcelFileDescriptor tunFd;
     private int localPort;
 
@@ -58,7 +58,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         proxyRunner = ((IrohProxyApp) getApplication()).getProxyRunner();
         proxyRunner.addListener(this);
         tunNativeTool = ((IrohProxyApp) getApplication()).getTun2Socks();
-        proxyStateStore = ((IrohProxyApp) getApplication()).getProxyStateStore();
+        proxyStateBus = ((IrohProxyApp) getApplication()).getProxyStateStore();
     }
 
     @Override
@@ -128,7 +128,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
             }
         }
 
-        proxyStateStore.notifyStarted();
+        proxyStateBus.notifyStarted();
     }
 
     private static Connection getConnection(Intent intent) {
@@ -140,7 +140,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     private void stopProxy() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopNativeTools();
-        proxyStateStore.notifyStopped();
+        proxyStateBus.notifyStopped();
         stopSelf();
     }
 
@@ -149,7 +149,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopNativeTools();
         stopSelf();
-        proxyStateStore.notifyError(message);
+        proxyStateBus.notifyError(message);
     }
 
     private void stopNativeTools() {

@@ -6,13 +6,7 @@ import android.os.Looper;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Process-scoped bus for proxy lifecycle events.
- *
- * <p>The proxy service publishes from a worker thread while listeners usually touch views,
- * so events are always delivered on the main thread (the job {@code sendBroadcast} used to do).
- */
-public class ProxyStateStore {
+public class ProxyStateBus {
 
     private final List<ProxyStateListener> listeners = new CopyOnWriteArrayList<>();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
