@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.activity;
+package su.weavedwires.iroh.vpn.activity.connection_config;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;

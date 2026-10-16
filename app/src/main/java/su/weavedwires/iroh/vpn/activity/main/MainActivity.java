@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.activity;
+package su.weavedwires.iroh.vpn.activity.main;
 
 import android.Manifest;
 import android.content.ClipData;
@@ -34,6 +34,8 @@ import com.google.android.material.snackbar.Snackbar;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
+import su.weavedwires.iroh.vpn.activity.settings.SettingsActivity;
+import su.weavedwires.iroh.vpn.activity.connection_config.ConnectionConfigActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;

@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.activity;
+package su.weavedwires.iroh.vpn.activity.settings;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import su.weavedwires.iroh.vpn.R;
+import su.weavedwires.iroh.vpn.activity.app_chooser.AppChooserActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.HostScope;
 import su.weavedwires.iroh.vpn.constant.Mode;

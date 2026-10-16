@@ -1,4 +1,4 @@
-package su.weavedwires.iroh.vpn.activity;
+package su.weavedwires.iroh.vpn.activity.main;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,7 +16,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import lombok.Getter;
-import lombok.Setter;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.model.Connection;
 

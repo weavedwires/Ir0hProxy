@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.activity.MainActivity;
+import su.weavedwires.iroh.vpn.activity.main.MainActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.Mode;
 import su.weavedwires.iroh.vpn.model.Connection;

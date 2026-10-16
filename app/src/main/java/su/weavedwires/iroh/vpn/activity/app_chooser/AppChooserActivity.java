@@ -1,6 +1,5 @@
-package su.weavedwires.iroh.vpn.activity;
+package su.weavedwires.iroh.vpn.activity.app_chooser;
 
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
@@ -12,8 +11,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.color.DynamicColors;
-
-import java.util.List;
 
 import su.weavedwires.iroh.vpn.R;
 
