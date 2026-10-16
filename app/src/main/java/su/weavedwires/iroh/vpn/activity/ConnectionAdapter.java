@@ -26,9 +26,13 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
     private final Consumer<Connection> onEdit;
 
     @Getter
-    @Setter
-    @NonNull
     private Connection selected;
+
+    public void setSelected(Connection selected) {
+        this.selected = selected;
+        notifyItemChanged(getCurrentList().indexOf(selected));
+    }
+
     private static final DiffUtil.ItemCallback<Connection> DIFF = new DiffUtil.ItemCallback<>() {
         @Override
         public boolean areItemsTheSame(@NonNull Connection oldItem, @NonNull Connection newItem) {
@@ -88,6 +92,9 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
             title.setText(connection.getName());
 
             select.setChecked(Objects.equals(connection.getId(), getSelected().getId()));
+            if (select.isChecked()) {
+                watchdog.exchange(select);
+            }
 
             current = connection;
             title.setText(connection.getName());
@@ -102,7 +109,9 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
                 previousButton.setChecked(false);
             }
             previousButton = newButton;
-            newButton.setChecked(true);
+            if (newButton != null) {
+                newButton.setChecked(true);
+            }
         }
     }
 }

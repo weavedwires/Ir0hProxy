@@ -17,14 +17,16 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 
 public class ConnectionStore {
     private final SharedPreferences prefs;
-    private LinkedHashMap<Long, Connection> connections;
+    private Map<Long, Connection> connections;
 
     public ConnectionStore(Context context) {
         prefs = getPrefs(context);
@@ -89,8 +91,8 @@ public class ConnectionStore {
         }
     }
 
-    private LinkedHashMap<Long, Connection> read() {
-        LinkedHashMap<Long, Connection> map = new LinkedHashMap<>();
+    private Map<Long, Connection> read() {
+        Map<Long, Connection> map = new TreeMap<>();
         Set<String> raw = prefs.getStringSet(Constant.CONNECTIONS, new HashSet<>());
         try {
             for (String connStr : raw) {

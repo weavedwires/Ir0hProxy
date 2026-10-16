@@ -87,12 +87,10 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
         enableButton = findViewById(R.id.enable_button);
 
         connectionListAdapter = new ConnectionAdapter(
-                this::selectConnection,
+                this::saveSelected,
                 this::callConnectionEditor
         );
-        if (connectionStore.getSelected() != null) {
-            connectionListAdapter.setSelected(connectionStore.getSelected());
-        }
+        connectionListAdapter.setSelected(connectionStore.getSelected());
 
         connectionList.setLayoutManager(new LinearLayoutManager(this));
         connectionList.setAdapter(connectionListAdapter);
@@ -208,12 +206,21 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
 
     private void deleteConnection(long id) {
         connectionStore.delete(id);
+        if (connectionStore.isEmpty()) {
+            selectConnection(null);
+        } else {
+            selectConnection(connectionStore.getList().get(0));
+        }
         connectionListAdapter.submitList(connectionStore.getList());
     }
 
     private void selectConnection(Connection connection) {
-        connectionStore.setSelected(connection);
         connectionListAdapter.setSelected(connection);
+        saveSelected(connection);
+    }
+
+    private void saveSelected(Connection connection) {
+        connectionStore.setSelected(connection);
     }
 
     private void toggleProxy() {
