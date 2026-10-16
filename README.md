@@ -27,14 +27,14 @@ The exit node **does not need a white (static) address**. It can be located anyw
 
 3. Connect and enjoy the free internet.
 
-There can be several saved connections — switch between them in the list.
+There can be several saved connections — switch between them in the apps.
 
 ## Settings
 
 - **Mode** — VPN or Proxy (VPN by default).
 - **Host** — `localhost` (`127.0.0.1`, accept connections only from this phone) or `0.0.0.0` (accept from the local network).
 - **Port** — local SOCKS5 port, `2081` by default.
-- **DNS servers** — list of primary DNS (see below).
+- **DNS servers** — apps of primary DNS (see below).
 
 ## How it works
 

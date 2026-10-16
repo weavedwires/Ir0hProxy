@@ -1,12 +1,9 @@
 package su.weavedwires.iroh.vpn.activity;
 
 import android.Manifest;
-import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.net.VpnService;
@@ -14,16 +11,19 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.PopupMenu;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.IntentCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,19 +34,19 @@ import com.google.android.material.snackbar.Snackbar;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
-import su.weavedwires.iroh.vpn.repository.ConnectionStore;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
+import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
+import su.weavedwires.iroh.vpn.proxy.ProxyStateStore;
+import su.weavedwires.iroh.vpn.repository.ConnectionStore;
+import su.weavedwires.iroh.vpn.repository.Settings;
 
-public class MainActivity extends AppCompatActivity {
-
+public class MainActivity extends AppCompatActivity implements ProxyStateListener {
     private Settings settings;
     private ConnectionStore connectionStore;
-
-    private ConnectionView connectionView;
+    private ConnectionAdapter connectionListAdapter;
     private FloatingActionButton enableButton;
     private String lastShownError;
 
@@ -63,25 +63,9 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> editLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    applyEditResult(result.getData());
+                    editConnection(result.getData());
                 }
             });
-
-    private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (Constant.ACTION_PROXY_STARTED.equals(action)) {
-                lastShownError = null;
-                updatePowerButton(true);
-            } else if (Constant.ACTION_PROXY_STOPPED.equals(action)) {
-                updatePowerButton(false);
-            } else if (Constant.ACTION_PROXY_ERROR.equals(action)) {
-                updatePowerButton(false);
-                showError(intent.getStringExtra(Constant.EXTRA_ERROR));
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,26 +86,38 @@ public class MainActivity extends AppCompatActivity {
         RecyclerView connectionList = findViewById(R.id.connection_list);
         enableButton = findViewById(R.id.enable_button);
 
-        connectionView = new ConnectionView(new ConnectionView.OnConnectionSelectedListener() {
-            @Override
-            public void onConnectionSelected(int position) {
-                selectConnection(position);
-            }
-            @Override
-            public void onConnectionEdit(int position) {
-                editConnection(position);
-            }
-        });
+        connectionListAdapter = new ConnectionAdapter(
+                this::selectConnection,
+                this::callConnectionEditor
+        );
+        if (connectionStore.getSelected() != null) {
+            connectionListAdapter.setSelected(connectionStore.getSelected());
+        }
 
         connectionList.setLayoutManager(new LinearLayoutManager(this));
-        connectionList.setAdapter(connectionView);
+        connectionList.setAdapter(connectionListAdapter);
+
+        connectionListAdapter.submitList(connectionStore.getList());
 
         enableButton.setOnClickListener(v -> toggleProxy());
         findViewById(R.id.settings_button).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.add_button).setOnClickListener(this::showAddMenu);
 
-        initConnections();
         handleIncomingLink(getIntent());
+
+        ProxyStateStore proxyStateStore = ((IrohProxyApp) getApplication()).getProxyStateStore();
+        getLifecycle().addObserver(new DefaultLifecycleObserver() {
+            @Override
+            public void onStart(@NonNull LifecycleOwner owner) {
+                proxyStateStore.addListener(MainActivity.this);
+                syncState();
+            }
+
+            @Override
+            public void onStop(@NonNull LifecycleOwner owner) {
+                proxyStateStore.removeListener(MainActivity.this);
+            }
+        });
     }
 
     @Override
@@ -143,102 +139,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (IllegalArgumentException e) {
             Snackbar.make(findViewById(R.id.main), R.string.invalid_link, Snackbar.LENGTH_SHORT).show();
         }
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Constant.ACTION_PROXY_STARTED);
-        filter.addAction(Constant.ACTION_PROXY_STOPPED);
-        filter.addAction(Constant.ACTION_PROXY_ERROR);
-        ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
-        syncState();
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        unregisterReceiver(stateReceiver);
-    }
-
-    private void initConnections() {
-        connectionView.setConnections(connectionStore.load());
-        int selected = settings.getSelected();
-        if (connectionView.getItemCount() > 0
-                && (selected < 0 || selected >= connectionView.getItemCount())) {
-            selected = 0;
-            settings.setSelected(selected);
-        }
-        connectionView.setSelected(selected);
-    }
-
-    private void applyEditResult(Intent data) {
-        if (data.getBooleanExtra(Constant.EXTRA_DELETED, false)) {
-            deleteConnection(data.getIntExtra(Constant.EXTRA_INDEX, -1));
-            return;
-        }
-        Connection connection = new Connection(
-                data.getStringExtra(Constant.EXTRA_NAME),
-                data.getStringExtra(Constant.EXTRA_USER),
-                data.getStringExtra(Constant.EXTRA_PASSWORD),
-                data.getStringExtra(Constant.EXTRA_TICKET));
-        int index = data.getIntExtra(Constant.EXTRA_INDEX, -1);
-        if (index >= 0) {
-            connectionStore.update(index, connection);
-            connectionView.notifyItemChanged(index);
-        } else {
-            addConnection(connection);
-        }
-    }
-
-    private void addConnection(Connection connection) {
-        boolean wasEmpty = connectionView.getItemCount() == 0;
-        int index = connectionStore.add(connection);
-        connectionView.notifyItemInserted(index);
-        if (wasEmpty) {
-            settings.setSelected(index);
-            connectionView.setSelected(index);
-        }
-    }
-
-    private void deleteConnection(int index) {
-        int size = connectionView.getItemCount();
-        if (index < 0 || index >= size) {
-            return;
-        }
-        int selected = settings.getSelected();
-        int newSelected = selected;
-        if (size == 1) {
-            newSelected = -1;
-        } else if (index < selected) {
-            newSelected = selected - 1;
-        } else if (index == selected) {
-            newSelected = Math.min(index, size - 2);
-        }
-        connectionStore.delete(index);
-        connectionView.notifyItemRemoved(index);
-        settings.setSelected(newSelected);
-        connectionView.setSelected(newSelected);
-    }
-
-    private void selectConnection(int position) {
-        settings.setSelected(position);
-        connectionView.setSelected(position);
-    }
-
-    private void editConnection(int position) {
-        Connection connection = connectionView.getConnection(position);
-        if (connection == null) {
-            return;
-        }
-        Intent intent = new Intent(this, ConnectionConfigActivity.class)
-                .putExtra(Constant.EXTRA_INDEX, position)
-                .putExtra(Constant.EXTRA_NAME, connection.getName())
-                .putExtra(Constant.EXTRA_USER, connection.getUser())
-                .putExtra(Constant.EXTRA_PASSWORD, connection.getPassword())
-                .putExtra(Constant.EXTRA_TICKET, connection.getTicket());
-        editLauncher.launch(intent);
     }
 
     private void showAddMenu(View anchor) {
@@ -266,15 +166,54 @@ public class MainActivity extends AppCompatActivity {
         String text = clip.getItemAt(0).coerceToText(this).toString();
         try {
             IrohSocksLink link = new IrohSocksLink(text);
-            Intent intent = new Intent(this, ConnectionConfigActivity.class)
-                    .putExtra(Constant.EXTRA_NAME, link.getName())
-                    .putExtra(Constant.EXTRA_USER, link.getUser())
-                    .putExtra(Constant.EXTRA_PASSWORD, link.getPassword())
-                    .putExtra(Constant.EXTRA_TICKET, link.getTicket());
-            editLauncher.launch(intent);
+            addConnection(link.toConnection());
         } catch (IllegalArgumentException e) {
             Snackbar.make(findViewById(R.id.main), R.string.invalid_link, Snackbar.LENGTH_SHORT).show();
         }
+    }
+
+    private void callConnectionEditor(Connection connection) {
+        Intent intent = new Intent(this, ConnectionConfigActivity.class)
+                .putExtra(Constant.EXTRA_CONNECTION, connection);
+        editLauncher.launch(intent);
+    }
+
+    private void addConnection(Connection newConnection) {
+        boolean firstConnection = connectionStore.isEmpty();
+        connectionStore.add(newConnection);
+        if (firstConnection) {
+            selectConnection(newConnection);
+        }
+        connectionListAdapter.submitList(connectionStore.getList());
+    }
+
+    private void editConnection(Intent data) {
+        Connection connection = IntentCompat.getParcelableExtra(data, Constant.EXTRA_CONNECTION, Connection.class);
+        if (connection == null) {
+            return;
+        }
+        if (data.getBooleanExtra(Constant.EXTRA_DELETED, false)) {
+            deleteConnection(connection.getId());
+        } else if (connectionStore.contains(connection.getId())) {
+            updateConnection(connection);
+        } else {
+            addConnection(connection);
+        }
+    }
+
+    private void updateConnection(Connection connection) {
+        connectionStore.update(connection.getId(), connection);
+        connectionListAdapter.submitList(connectionStore.getList());
+    }
+
+    private void deleteConnection(long id) {
+        connectionStore.delete(id);
+        connectionListAdapter.submitList(connectionStore.getList());
+    }
+
+    private void selectConnection(Connection connection) {
+        connectionStore.setSelected(connection);
+        connectionListAdapter.setSelected(connection);
     }
 
     private void toggleProxy() {
@@ -298,11 +237,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startProxy() {
-        Connection connection = connectionView.getSelectedConnection();
+        Connection connection = connectionListAdapter.getSelected();
         if (connection == null) {
-            Toast.makeText(this, R.string.no_connection_selected, Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(R.id.main), R.string.no_connection_selected, Snackbar.LENGTH_SHORT).show();
             return;
         }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -320,18 +260,30 @@ public class MainActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, ProxyService.class)
                 .setAction(Constant.ACTION_START)
-                .putExtra(Constant.EXTRA_TICKET, connection.getTicket())
-                .putExtra(Constant.EXTRA_USER, connection.getUser())
-                .putExtra(Constant.EXTRA_PASSWORD, connection.getPassword());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
+                .putExtra(Constant.EXTRA_CONNECTION, connection);
+
+        ContextCompat.startForegroundService(this, intent);
     }
 
     private void stopProxy() {
         startService(new Intent(this, ProxyService.class).setAction(Constant.ACTION_STOP));
+    }
+
+    @Override
+    public void onStarted() {
+        lastShownError = null;
+        updatePowerButton(true);
+    }
+
+    @Override
+    public void onStopped() {
+        updatePowerButton(false);
+    }
+
+    @Override
+    public void onError(String error) {
+        updatePowerButton(false);
+        showError(error);
     }
 
     private void syncState() {

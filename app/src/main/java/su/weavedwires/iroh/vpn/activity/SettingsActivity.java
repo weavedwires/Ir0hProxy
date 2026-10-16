@@ -23,10 +23,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.HostScope;
 import su.weavedwires.iroh.vpn.constant.Mode;
+import su.weavedwires.iroh.vpn.repository.Settings;
 
 public class SettingsActivity extends AppCompatActivity {
     private MaterialSwitch hostSwitch;

@@ -2,9 +2,7 @@ package su.weavedwires.iroh.vpn;
 
 import java.util.function.Supplier;
 
-import su.weavedwires.iroh.vpn.nativ.NativeTool;
-
-public class ThreadSafeSingleton<T extends NativeTool> {
+public class ThreadSafeSingleton<T> {
     private volatile T object;
 
     public T getOrCreateInstance(Supplier<T> constructor) {

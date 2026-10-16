@@ -12,7 +12,10 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
+import androidx.core.content.IntentCompat;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,14 +25,15 @@ import java.util.concurrent.Executors;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.activity.MainActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.Mode;
-import su.weavedwires.iroh.vpn.tun.TunNativeTool;
-import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
+import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.nativ.error.NativeError;
 import su.weavedwires.iroh.vpn.nativ.error.NativeErrorListener;
+import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.tun.TunNativeTool;
+import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
 
 public class ProxyService extends VpnService implements NativeErrorListener {
 
@@ -42,6 +46,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     private Settings settings;
     private ProxyNativeTool proxyRunner;
     private TunNativeTool tunNativeTool;
+    private ProxyStateStore proxyStateStore;
     private ParcelFileDescriptor tunFd;
     private int localPort;
 
@@ -53,6 +58,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         proxyRunner = ((IrohProxyApp) getApplication()).getProxyRunner();
         proxyRunner.addListener(this);
         tunNativeTool = ((IrohProxyApp) getApplication()).getTun2Socks();
+        proxyStateStore = ((IrohProxyApp) getApplication()).getProxyStateStore();
     }
 
     @Override
@@ -61,7 +67,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
             worker.execute(this::stopProxy);
             return START_NOT_STICKY;
         }
-        startAsForeground();
+        startAsForeground(intent);
         worker.execute(() -> startProxy(intent));
         return START_NOT_STICKY;
     }
@@ -92,16 +98,14 @@ public class ProxyService extends VpnService implements NativeErrorListener {
             return;
         }
 
-        String ticket = intent != null ? intent.getStringExtra(Constant.EXTRA_TICKET) : null;
-        String username = intent != null ? intent.getStringExtra(Constant.EXTRA_USER) : null;
-        String password = intent != null ? intent.getStringExtra(Constant.EXTRA_PASSWORD) : null;
-
+        Connection connection = getConnection(intent);
+        String ticket = connection != null ? connection.getTicket() : null;
         if (ticket == null || ticket.isEmpty()) {
             fail("ticket missing");
             return;
         }
 
-        boolean vpnMode = settings.getMode() == Mode.VPN;
+        boolean vpnMode = isVpnMode();
         localPort = settings.getPort();
         InetSocketAddress bindAddress = new InetSocketAddress(settings.getHost(), localPort);
 
@@ -118,28 +122,34 @@ public class ProxyService extends VpnService implements NativeErrorListener {
                 fail("failed to establish VPN");
                 return;
             }
-            if (!startTun2Socks(username, password)) {
+            if (!startTun2Socks(connection.getUser(), connection.getPassword())) {
                 fail("failed to start tun2socks");
                 return;
             }
         }
 
-        broadcast(Constant.ACTION_PROXY_STARTED, null);
+        proxyStateStore.notifyStarted();
+    }
+
+    private static Connection getConnection(Intent intent) {
+        return intent == null
+                ? null
+                : IntentCompat.getParcelableExtra(intent, Constant.EXTRA_CONNECTION, Connection.class);
     }
 
     private void stopProxy() {
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopNativeTools();
-        broadcast(Constant.ACTION_PROXY_STOPPED, null);
+        proxyStateStore.notifyStopped();
         stopSelf();
     }
 
     private void fail(String message) {
         Log.e(TAG, message);
-        stopForeground(STOP_FOREGROUND_REMOVE);
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopNativeTools();
         stopSelf();
-        broadcast(Constant.ACTION_PROXY_ERROR, message);
+        proxyStateStore.notifyError(message);
     }
 
     private void stopNativeTools() {
@@ -156,14 +166,6 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         if (proxyRunner != null) {
             proxyRunner.stop();
         }
-    }
-
-    private void broadcast(String action, String error) {
-        Intent intent = new Intent(action).setPackage(getPackageName());
-        if (error != null) {
-            intent.putExtra(Constant.EXTRA_ERROR, error);
-        }
-        sendBroadcast(intent);
     }
 
     @SuppressWarnings("DataFlowIssue")
@@ -188,7 +190,8 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         try {
             TunNativeToolConfig config = TunNativeToolConfig.builder()
                     .socks5(new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, localPort))
-                    .credentials(username, password)
+                    .username(username)
+                    .password(password)
                     .build();
             config.writeTo(configFile);
         } catch (IOException e) {
@@ -198,25 +201,39 @@ public class ProxyService extends VpnService implements NativeErrorListener {
         return tunNativeTool.start(configFile.getAbsolutePath(), tunFd.getFd());
     }
 
-    private void startAsForeground() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    private void startAsForeground(Intent startIntent) {
+        Intent openIntent = new Intent(this, MainActivity.class);
+        openIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+                this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE);
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.notification_title))
-                .setContentText(getString(R.string.notification_text))
+        Notification notification = makeNotification(startIntent, pendingIntent);
+
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+    }
+
+    @NonNull
+    private Notification makeNotification(Intent rootIntent, PendingIntent pendingIntent) {
+        int titleType = isVpnMode() ? R.string.notification_title_vpn : R.string.notification_title_proxy;
+        String title = getString(titleType);
+
+        String connectionName = null;
+        Connection connection = getConnection(rootIntent);
+        if (connection != null) {
+            connectionName = connection.getName();
+        }
+        String text = (connectionName == null || connectionName.isEmpty()) ? getString(R.string.no_name) : connectionName;
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(text)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(pendingIntent)
                 .build();
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+    private boolean isVpnMode() {
+        return settings.getMode() == Mode.VPN;
     }
 
     private void createNotificationChannel() {

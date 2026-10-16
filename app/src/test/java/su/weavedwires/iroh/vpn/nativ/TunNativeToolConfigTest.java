@@ -38,7 +38,8 @@ public class TunNativeToolConfigTest {
     @Test
     public void credentials_areIncludedWhenBothPresent() {
         TunNativeToolConfig config = TunNativeToolConfig.builder()
-                .credentials("alice", "secret")
+                .username("alice")
+                .password("secret")
                 .build();
         String rendered = config.toConfigString();
 
@@ -49,7 +50,8 @@ public class TunNativeToolConfigTest {
     @Test
     public void credentials_areOmittedWhenPartial() {
         TunNativeToolConfig config = TunNativeToolConfig.builder()
-                .credentials("alice", "")
+                .username("alice")
+                .password("")
                 .build();
         String rendered = config.toConfigString();
 

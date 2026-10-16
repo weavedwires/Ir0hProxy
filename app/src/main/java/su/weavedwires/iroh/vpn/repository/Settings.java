@@ -119,14 +119,6 @@ public class Settings {
         return getMode() == Mode.VPN;
     }
 
-    public int getSelected() {
-        return prefs.getInt(Constant.SELECTED, -1);
-    }
-
-    public void setSelected(int index) {
-        prefs.edit().putInt(Constant.SELECTED, index).apply();
-    }
-
     private static <T extends Enum<T>> T enumByName(Class<T> type, String name) {
         if (name == null || name.isEmpty()) {
             return null;

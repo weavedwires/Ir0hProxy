@@ -11,8 +11,9 @@ Android app (pure Java, no Kotlin) that exposes a local SOCKS5 proxy whose upstr
 ./gradlew assembleRelease                        # requires keystore.properties (local only)
 ```
 
-- Java toolchain 17 for compilation; Gradle daemon runs on JVM 21 (pinned in `gradle/gradle-daemon-jvm.properties`). Gradle 9.8, AGP 9.4.1, minSdk 26.
+- Java toolchain 17 for compilation; Gradle daemon runs on JVM 21 (pinned in `gradle/gradle-daemon-jvm.properties`). Gradle 9.8, AGP 9.4.1, minSdk 23.
 - `compileSdk` uses the new AGP 9.4 DSL (`compileSdk { version = release(37) }`) — do not rewrite it as `compileSdk = 37`.
+- Core library desugaring is enabled (`compileOptions.isCoreLibraryDesugaringEnabled` + `desugar_jdk_libs` in `libs.versions.toml`): something like `java.util.function.Supplier` (API 24) runs on API 23. Do not drop it. minSdk 23 is the floor imposed by the AndroidX versions in use.
 - Release signing reads the gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) plus `release.jks`; both are local-only. There is no CI in this repo.
 - Unit tests are the only configured verification. No lint/format config.
 
@@ -23,12 +24,12 @@ Android app (pure Java, no Kotlin) that exposes a local SOCKS5 proxy whose upstr
 - `libdumbpipe.so` — the Rust `dumbpipe` CLI, run as a subprocess.
 - `libhev-socks5-tunnel.so` — tun2socks JNI library.
 - Rebuild (both need an Android NDK; auto-detected from `$ANDROID_NDK_ROOT`/`$NDK_HOME`/`~/Android/Sdk/ndk`):
-  - `./scripts/build_dumbpipe.sh` — cross-compiles Rust for 4 ABIs, then calls `sync_dumbpipe.sh`. Sibling repo from `$DUMBPIPE_DIR` or the gitignored `./dumbpipe` symlink (→ `../dumbpipe-over-chatmail`); needs `rustup` targets, API defaults to 24.
-  - `./scripts/sync_sockstun.sh` — ndk-build. Sibling source from `$SOCKSTUN_DIR` or `../sockstun`.
+  - `./scripts/build_dumbpipe.sh` — cross-compiles Rust for 4 ABIs, then calls `sync_dumbpipe.sh`. Sibling repo from `$DUMBPIPE_DIR` or the gitignored `./dumbpipe` symlink (→ `../dumbpipe-over-chatmail`); needs `rustup` targets, API defaults to 24 (fine at minSdk 23: the only newer libc symbol is a weak `getrandom`).
+  - `./scripts/sync_sockstun.sh` — ndk-build, pinned to `APP_PLATFORM=android-23`. Sibling source from `$SOCKSTUN_DIR` or `../sockstun`. Do not raise the platform: ndk-build forces `-D_FORTIFY_SOURCE=2`, and from API 24 the fortified `write()` needs `__write_chk@LIBC_N`, which is missing on API 23 (the library then fails to load).
   - `./scripts/sync_dumbpipe.sh` — only copies already-built binaries from `<dumbpipe>/dist`.
 - Fresh clones have no symlinks: point `DUMBPIPE_DIR` / `SOCKSTUN_DIR` at the sibling checkouts.
 - Keep the `lib` prefix: only `lib*.so` gets extracted from non-debuggable APKs, and `packaging.jniLibs.useLegacyPackaging = true` keeps them extracted to `nativeLibraryDir` so the executable can run.
-- JNI class name is baked in at build time (`PKGNAME=su/weavedwires/iroh/vpn/nativ`, `CLSNAME=TunNativeTool`, see `sync_sockstun.sh`) and must match `TunNativeTool`. Do not remove its `TProxy*` native methods.
+- JNI class name is baked in at build time (`PKGNAME=su/weavedwires/iroh/vpn/tun`, `CLSNAME=TunNativeTool`, see `sync_sockstun.sh`) and must match `tun/TunNativeTool`. `TunNativeToolBindingTest` guards this; do not remove its `TProxy*` native methods.
 
 ## dumbpipe runtime contract
 

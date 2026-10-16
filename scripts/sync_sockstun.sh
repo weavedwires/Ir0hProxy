@@ -8,7 +8,11 @@
 #
 # The JNI layer registers natives on the class baked in at compile time via
 # -DPKGNAME/-DCLSNAME. These MUST match the Java bridge class:
-#   PKGNAME=su/weavedwires/iroh/vpn/nativ  CLSNAME=Tun2Socks
+#   PKGNAME=su/weavedwires/iroh/vpn/tun    CLSNAME=TunNativeTool
+#
+# APP_PLATFORM is pinned to android-23 (= app minSdk): ndk-build always passes
+# -D_FORTIFY_SOURCE=2, and from API 24 bionic's fortified write() calls
+# __write_chk@LIBC_N, which does not exist on API 23 devices (dlopen fails).
 #
 # NDK is auto-detected ($ANDROID_NDK_ROOT > $NDK_HOME > newest under
 # ~/Android/Sdk/ndk).
@@ -35,7 +39,7 @@ fi
 [[ -n "$NDK" && -x "$NDK/ndk-build" ]] || { echo "error: NDK not found" >&2; exit 1; }
 
 ABIS=(arm64-v8a armeabi-v7a x86 x86_64)
-PKGNAME="su/weavedwires/iroh/vpn/nativ"
+PKGNAME="su/weavedwires/iroh/vpn/tun"
 CLSNAME="TunNativeTool"
 
 TMP="$(mktemp -d)"
@@ -48,6 +52,7 @@ trap 'rm -rf "$TMP"' EXIT
         APP_BUILD_SCRIPT=Android.mk \
         NDK_APPLICATION_MK=Application.mk \
         APP_ABI="${ABIS[*]}" \
+        APP_PLATFORM=android-23 \
         APP_CFLAGS="-O3 -DPKGNAME=$PKGNAME -DCLSNAME=$CLSNAME" \
         NDK_OUT="$TMP/obj" \
         NDK_LIBS_OUT="$TMP/libs" >&2

@@ -8,35 +8,31 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
+import lombok.Builder;
+
 import su.weavedwires.iroh.vpn.constant.Constant;
 
-public final class TunNativeToolConfig {
+@Builder
+public class TunNativeToolConfig {
 
-    private final int taskStackSize;
-    private final int mtu;
-    private final InetSocketAddress socks5;
+    @Builder.Default
+    private final int taskStackSize = Constant.TASK_STACK_SIZE;
+    @Builder.Default
+    private final int mtu = Constant.TUN_MTU;
+    @Builder.Default
+    private final InetSocketAddress socks5 =
+            new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, Constant.DEFAULT_PORT);
     private final String username;
     private final String password;
-    private final InetSocketAddress mapDns;
-    private final InetAddress mapDnsNetwork;
-    private final InetAddress mapDnsNetmask;
-    private final int mapDnsCacheSize;
-
-    private TunNativeToolConfig(Builder builder) {
-        this.taskStackSize = builder.taskStackSize;
-        this.mtu = builder.mtu;
-        this.socks5 = builder.socks5;
-        this.username = builder.username;
-        this.password = builder.password;
-        this.mapDns = builder.mapDns;
-        this.mapDnsNetwork = builder.mapDnsNetwork;
-        this.mapDnsNetmask = builder.mapDnsNetmask;
-        this.mapDnsCacheSize = builder.mapDnsCacheSize;
-    }
-
-    public static Builder builder() {
-        return new Builder();
-    }
+    @Builder.Default
+    private final InetSocketAddress mapDns =
+            new InetSocketAddress(Constant.DNS_SERVER, Constant.MAPDNS_PORT);
+    @Builder.Default
+    private final InetAddress mapDnsNetwork = Constant.MAPDNS_NETWORK;
+    @Builder.Default
+    private final InetAddress mapDnsNetmask = Constant.MAPDNS_NETMASK;
+    @Builder.Default
+    private final int mapDnsCacheSize = Constant.MAPDNS_CACHE_SIZE;
 
     public String toConfigString() {
         StringBuilder conf = new StringBuilder();
@@ -71,62 +67,5 @@ public final class TunNativeToolConfig {
     private boolean hasCredentials() {
         return username != null && !username.isEmpty()
                 && password != null && !password.isEmpty();
-    }
-
-    public static final class Builder {
-        private int taskStackSize = Constant.TASK_STACK_SIZE;
-        private int mtu = Constant.TUN_MTU;
-        private InetSocketAddress socks5 = new InetSocketAddress(Constant.LOCAL_HOST_ADDRESS, Constant.DEFAULT_PORT);
-        private String username;
-        private String password;
-        private InetSocketAddress mapDns = new InetSocketAddress(Constant.DNS_SERVER, Constant.MAPDNS_PORT);
-        private InetAddress mapDnsNetwork = Constant.MAPDNS_NETWORK;
-        private InetAddress mapDnsNetmask = Constant.MAPDNS_NETMASK;
-        private int mapDnsCacheSize = Constant.MAPDNS_CACHE_SIZE;
-
-        public Builder taskStackSize(int value) {
-            this.taskStackSize = value;
-            return this;
-        }
-
-        public Builder mtu(int value) {
-            this.mtu = value;
-            return this;
-        }
-
-        public Builder socks5(InetSocketAddress value) {
-            this.socks5 = value;
-            return this;
-        }
-
-        public Builder credentials(String username, String password) {
-            this.username = username;
-            this.password = password;
-            return this;
-        }
-
-        public Builder mapDns(InetSocketAddress value) {
-            this.mapDns = value;
-            return this;
-        }
-
-        public Builder mapDnsNetwork(InetAddress value) {
-            this.mapDnsNetwork = value;
-            return this;
-        }
-
-        public Builder mapDnsNetmask(InetAddress value) {
-            this.mapDnsNetmask = value;
-            return this;
-        }
-
-        public Builder mapDnsCacheSize(int value) {
-            this.mapDnsCacheSize = value;
-            return this;
-        }
-
-        public TunNativeToolConfig build() {
-            return new TunNativeToolConfig(this);
-        }
     }
 }

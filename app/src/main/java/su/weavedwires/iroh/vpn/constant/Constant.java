@@ -15,15 +15,7 @@ public class Constant {
     public static final String[] DEFAULT_DNS_SERVERS = {"77.88.8.8", "77.88.8.1"};
     public static final String ACTION_STOP = "ACTION_STOP";
     public static final String ACTION_START = "ACTION_START";
-    public static final String ACTION_PROXY_STARTED = "su.weavedwires.iroh.vpn.PROXY_STARTED";
-    public static final String ACTION_PROXY_STOPPED = "su.weavedwires.iroh.vpn.PROXY_STOPPED";
-    public static final String ACTION_PROXY_ERROR = "su.weavedwires.iroh.vpn.PROXY_ERROR";
-    public static final String EXTRA_ERROR = "EXTRA_ERROR";
-    public static final String EXTRA_TICKET = "EXTRA_TICKET";
-    public static final String EXTRA_USER = "EXTRA_USER";
-    public static final String EXTRA_PASSWORD = "EXTRA_PASSWORD";
-    public static final String EXTRA_NAME = "EXTRA_NAME";
-    public static final String EXTRA_INDEX = "EXTRA_INDEX";
+    public static final String EXTRA_CONNECTION = "EXTRA_CONNECTION";
     public static final String EXTRA_DELETED = "EXTRA_DELETED";
     public static final String LEGACY_MODE_PROXY = "proxy";
     public static final String LEGACY_PUBLIC_HOST = "0.0.0.0";

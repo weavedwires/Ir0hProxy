@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "su.weavedwires.iroh.vpn"
-        minSdk = 26
+        minSdk = 23
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -51,6 +51,11 @@ android {
             useLegacyPackaging = true
         }
     }
+
+    compileOptions {
+        // java.util.function (Supplier) is API 24; the app supports API 23.
+        isCoreLibraryDesugaringEnabled = true
+    }
 }
 
 java {
@@ -60,12 +65,19 @@ java {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+
     implementation(libs.activity.ktx)
     implementation(libs.appcompat)
     implementation(libs.constraintlayout)
     implementation(libs.material)
     implementation(libs.recyclerview)
     implementation(libs.security.crypto)
+    testCompileOnly(libs.lombok)
+    testAnnotationProcessor(libs.lombok)
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)

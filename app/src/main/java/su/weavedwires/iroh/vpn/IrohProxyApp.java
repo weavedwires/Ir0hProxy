@@ -7,13 +7,15 @@ import android.widget.Toast;
 
 import java.io.File;
 
+import su.weavedwires.iroh.vpn.proxy.ProxyNativeTool;
+import su.weavedwires.iroh.vpn.proxy.ProxyStateStore;
 import su.weavedwires.iroh.vpn.repository.Settings;
 import su.weavedwires.iroh.vpn.tun.TunNativeTool;
-import su.weavedwires.iroh.vpn.proxy.ProxyNativeTool;
 
 public class IrohProxyApp extends Application {
     private final ThreadSafeSingleton<ProxyNativeTool> proxyRunner = new ThreadSafeSingleton<>();
     private final ThreadSafeSingleton<TunNativeTool> tun2Socks = new ThreadSafeSingleton<>();
+    private final ThreadSafeSingleton<ProxyStateStore> proxyStateStore = new ThreadSafeSingleton<>();
 
     @Override
     public void onCreate() {
@@ -27,6 +29,10 @@ public class IrohProxyApp extends Application {
 
     public TunNativeTool getTun2Socks() {
         return tun2Socks.getOrCreateInstance(TunNativeTool::new);
+    }
+
+    public ProxyStateStore getProxyStateStore() {
+        return proxyStateStore.getOrCreateInstance(ProxyStateStore::new);
     }
 
     private ProxyNativeTool createProxyRunner() {

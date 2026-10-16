@@ -22,7 +22,7 @@
         <TextView
             android:id="@+id/connection_title"
             android:layout_width="0dp"
-            android:paddingHorizontal="16dp"
+            android:layout_marginHorizontal="16dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:ellipsize="end"
@@ -40,11 +40,9 @@
             android:src="@drawable/ic_edit"
             app:tint="?attr/colorOnSurfaceVariant" />
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
             android:id="@+id/connection_selected"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:clickable="false"
-            android:focusable="false" />
+            android:layout_height="wrap_content" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

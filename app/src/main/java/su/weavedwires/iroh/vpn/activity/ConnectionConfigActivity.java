@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.IntentCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -22,15 +23,15 @@ import com.google.android.material.textfield.TextInputEditText;
 
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.constant.Constant;
+import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 
 public class ConnectionConfigActivity extends AppCompatActivity {
-
     private TextInputEditText nameInput;
     private TextInputEditText ticketInput;
     private TextInputEditText userInput;
     private TextInputEditText passwordInput;
-    private int editIndex = -1;
+    private Connection original;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,9 +46,7 @@ public class ConnectionConfigActivity extends AppCompatActivity {
             return insets;
         });
 
-        editIndex = getIntent() != null
-                ? getIntent().getIntExtra(Constant.EXTRA_INDEX, -1)
-                : -1;
+        original = IntentCompat.getParcelableExtra(getIntent(), Constant.EXTRA_CONNECTION, Connection.class);
 
         nameInput = findViewById(R.id.name_input);
         ticketInput = findViewById(R.id.ticket_input);
@@ -57,34 +56,30 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         saveButton.setOnClickListener(v -> save());
 
         MaterialButton deleteButton = findViewById(R.id.delete_button);
-        deleteButton.setVisibility(editIndex >= 0 ? View.VISIBLE : View.GONE);
+        deleteButton.setVisibility(original != null ? View.VISIBLE : View.GONE);
         deleteButton.setOnClickListener(v -> confirmDelete());
 
         MaterialButton shareButton = findViewById(R.id.share_button);
         shareButton.setOnClickListener(v -> share());
 
-        prefillFromExtras();
+        prefill(original);
     }
 
-    private void prefillFromExtras() {
-        if (getIntent() == null) {
+    private void prefill(Connection connection) {
+        if (connection == null) {
             return;
         }
-        String name = getIntent().getStringExtra(Constant.EXTRA_NAME);
-        String ticket = getIntent().getStringExtra(Constant.EXTRA_TICKET);
-        String user = getIntent().getStringExtra(Constant.EXTRA_USER);
-        String password = getIntent().getStringExtra(Constant.EXTRA_PASSWORD);
-        if (name != null) {
-            nameInput.setText(name);
+        if (connection.getName() != null) {
+            nameInput.setText(connection.getName());
         }
-        if (ticket != null) {
-            ticketInput.setText(ticket);
+        if (connection.getTicket() != null) {
+            ticketInput.setText(connection.getTicket());
         }
-        if (user != null) {
-            userInput.setText(user);
+        if (connection.getUser() != null) {
+            userInput.setText(connection.getUser());
         }
-        if (password != null) {
-            passwordInput.setText(password);
+        if (connection.getPassword() != null) {
+            passwordInput.setText(connection.getPassword());
         }
     }
 
@@ -99,23 +94,27 @@ public class ConnectionConfigActivity extends AppCompatActivity {
         String password = getText(passwordInput);
 
         Intent result = new Intent()
-                .putExtra(Constant.EXTRA_INDEX, editIndex)
-                .putExtra(Constant.EXTRA_DELETED, false)
-                .putExtra(Constant.EXTRA_NAME, name)
-                .putExtra(Constant.EXTRA_USER, user)
-                .putExtra(Constant.EXTRA_PASSWORD, password)
-                .putExtra(Constant.EXTRA_TICKET, ticket);
+                .putExtra(Constant.EXTRA_CONNECTION, new Connection(
+                        original == null ? null : original.getId(),
+                        name,
+                        user,
+                        password,
+                        ticket))
+                .putExtra(Constant.EXTRA_DELETED, false);
         setResult(RESULT_OK, result);
         finish();
     }
 
     private void confirmDelete() {
+        if (original == null) {
+            return;
+        }
         new AlertDialog.Builder(this)
                 .setTitle(R.string.delete_confirm_title)
                 .setMessage(R.string.delete_confirm_message)
                 .setPositiveButton(R.string.remove, (dialog, which) -> {
                     Intent result = new Intent()
-                            .putExtra(Constant.EXTRA_INDEX, editIndex)
+                            .putExtra(Constant.EXTRA_CONNECTION, original)
                             .putExtra(Constant.EXTRA_DELETED, true);
                     setResult(RESULT_OK, result);
                     finish();
