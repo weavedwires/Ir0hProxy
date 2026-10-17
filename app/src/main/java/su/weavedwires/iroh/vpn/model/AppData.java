@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 public class AppData {
     private final String name;
+    private final String packageName;
     private final Drawable icon;
     private boolean checked = false;
 

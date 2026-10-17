@@ -1,8 +1,10 @@
 package su.weavedwires.iroh.vpn.activity.app_chooser;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.health.connect.datatypes.AppInfo;
 import android.os.Build;
 import android.os.Bundle;
@@ -51,7 +53,6 @@ public class AppChooserActivity extends AppCompatActivity {
         adapter.submitList(apps);
 
         appList.setAdapter(adapter);
-
     }
 
     @NonNull
@@ -59,16 +60,31 @@ public class AppChooserActivity extends AppCompatActivity {
     private List<AppData> getApps() {
         var pm = getPackageManager();
 
-        List<ApplicationInfo> appInfos = pm.getInstalledApplications(0);
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        return appInfos.stream()
+        List<ResolveInfo> resolveInfos;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            resolveInfos = pm.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(0)
+            );
+        } else {
+            resolveInfos = pm.queryIntentActivities(intent, 0);
+        }
+
+        return resolveInfos.stream()
                 .map(info -> toAppData(info, pm))
                 .sorted(Comparator.comparing(AppData::getName))
                 .collect(Collectors.toList());
     }
 
     @NonNull
-    private static AppData toAppData(ApplicationInfo info, PackageManager pm) {
-        return new AppData(info.loadLabel(pm).toString(), pm.getApplicationIcon(info));
+    private static AppData toAppData(ResolveInfo info, PackageManager pm) {
+        return new AppData(
+                info.loadLabel(pm).toString(),
+                info.activityInfo.applicationInfo.packageName,
+                info.loadIcon(pm)
+        );
     }
 }
