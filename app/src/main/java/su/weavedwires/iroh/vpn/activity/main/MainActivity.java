@@ -34,14 +34,14 @@ import com.google.android.material.snackbar.Snackbar;
 
 import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.activity.settings.SettingsActivity;
 import su.weavedwires.iroh.vpn.activity.connection_config.ConnectionConfigActivity;
+import su.weavedwires.iroh.vpn.activity.settings.SettingsActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
-import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
+import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
 import su.weavedwires.iroh.vpn.repository.ConnectionStore;
 import su.weavedwires.iroh.vpn.repository.Settings;
 
@@ -86,7 +86,6 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
         connectionStore = new ConnectionStore(this);
 
         RecyclerView connectionList = findViewById(R.id.connection_list);
-        enableButton = findViewById(R.id.enable_button);
 
         connectionListAdapter = new ConnectionAdapter(
                 this::saveSelected,
@@ -99,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
 
         connectionListAdapter.submitList(connectionStore.getList());
 
+        enableButton = findViewById(R.id.enable_button);
         enableButton.setOnClickListener(v -> toggleProxy());
         findViewById(R.id.settings_button).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.add_button).setOnClickListener(this::showAddMenu);

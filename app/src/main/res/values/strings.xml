@@ -47,4 +47,6 @@
     <string name="no_share_apps">Нет подходящих приложений</string>
     <string name="proxying_applications">Проксируемые приложения</string>
     <string name="app_icon">Иконка приложения</string>
+    <string name="proxying">Проксирование</string>
+    <string name="bypass">Обход</string>
 </resources>

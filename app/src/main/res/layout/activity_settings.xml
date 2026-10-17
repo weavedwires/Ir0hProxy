@@ -23,7 +23,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="24dp"
         android:layout_marginEnd="16dp"
         android:fillViewport="true"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -39,7 +39,6 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -103,7 +102,7 @@
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
                 android:hint="@string/listen_port">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -128,6 +127,7 @@
                 android:id="@+id/dns_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
             <com.google.android.material.button.MaterialButton
@@ -143,10 +143,10 @@
                 android:id="@+id/apps"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
+                android:padding="12dp"
                 android:text="@string/proxying_applications"
                 android:textSize="20sp"
-                android:padding="12dp"
                 app:cornerRadius="16dp" />
 
         </LinearLayout>

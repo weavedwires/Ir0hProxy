@@ -36,7 +36,6 @@ import su.weavedwires.iroh.vpn.tun.TunNativeTool;
 import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
 
 public class ProxyService extends VpnService implements NativeErrorListener {
-
     private static final String TAG = "ProxyService";
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "iroh_vpn";
