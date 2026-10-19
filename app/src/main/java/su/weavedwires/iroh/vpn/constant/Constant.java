@@ -19,7 +19,6 @@ public class Constant {
     public static final String ACTION_STOP = "ACTION_STOP";
     public static final String ACTION_START = "ACTION_START";
     public static final String EXTRA_CONNECTION = "EXTRA_CONNECTION";
-    public static final String EXTRA_APP_FILTER = "EXTRA_APP_FILTER";
     public static final String EXTRA_DELETED = "EXTRA_DELETED";
     public static final String LEGACY_MODE_PROXY = "proxy";
     public static final String LEGACY_PUBLIC_HOST = "0.0.0.0";

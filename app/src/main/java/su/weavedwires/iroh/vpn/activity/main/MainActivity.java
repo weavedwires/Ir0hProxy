@@ -39,11 +39,9 @@ import su.weavedwires.iroh.vpn.activity.settings.SettingsActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
-import su.weavedwires.iroh.vpn.model.VpnAppFilter;
 import su.weavedwires.iroh.vpn.ProxyService;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
-import su.weavedwires.iroh.vpn.repository.AppRepository;
 import su.weavedwires.iroh.vpn.repository.ConnectionRepository;
 import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 
@@ -271,16 +269,9 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
         }
 
         Intent intent = new Intent(this, ProxyService.class)
-                .setAction(Constant.ACTION_START)
-                .putExtra(Constant.EXTRA_CONNECTION, connection)
-                .putExtra(Constant.EXTRA_APP_FILTER, createFilter());
+                .setAction(Constant.ACTION_START);
 
         ContextCompat.startForegroundService(this, intent);
-    }
-
-    private VpnAppFilter createFilter() {
-        var repo = new AppRepository(this);
-        return new VpnAppFilter(repo.getApps().toArray(new String[0]), repo.getMode());
     }
 
     private void stopProxy() {

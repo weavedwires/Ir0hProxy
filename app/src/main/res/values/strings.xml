@@ -13,6 +13,7 @@
     <string name="notification_title_vpn">VPN работает</string>
     <string name="notification_title_proxy">Proxy работает</string>
     <string name="foreground_start_failed">Не удалось запустить прокси</string>
+    <string name="vpn_permission_missing">Нет разрешения на VPN</string>
     <string name="listen_address">Локально прослушиваемый адрес</string>
     <string name="backward">Назад</string>
     <string name="add_connection">Добавить</string>

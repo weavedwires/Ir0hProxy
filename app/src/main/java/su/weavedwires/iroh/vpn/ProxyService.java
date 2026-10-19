@@ -16,7 +16,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
-import androidx.core.content.IntentCompat;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,6 +33,8 @@ import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.VpnAppFilter;
 import su.weavedwires.iroh.vpn.proxy.ProxyNativeTool;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
+import su.weavedwires.iroh.vpn.repository.AppRepository;
+import su.weavedwires.iroh.vpn.repository.ConnectionRepository;
 import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 import su.weavedwires.iroh.vpn.tun.TunNativeTool;
 import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
@@ -84,26 +85,25 @@ public class ProxyService extends VpnService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            Log.w(TAG, "received null intent, stopping service");
-            stopping.set(true);
-            startAsForeground(null);
-            submit(this::shutdown);
-            return START_NOT_STICKY;
-        }
-
-        if (Constant.ACTION_STOP.equals(intent.getAction())) {
+        if (intent != null && Constant.ACTION_STOP.equals(intent.getAction())) {
             stopping.set(true);
             submit(this::shutdown);
             return START_NOT_STICKY;
         }
 
-        if (!startAsForeground(intent)) {
+        boolean systemStart = intent == null
+                || VpnService.SERVICE_INTERFACE.equals(intent.getAction());
+        if (systemStart) {
+            Log.i(TAG, "system start (always-on vpn)");
+        }
+
+        NetworkMode mode = systemStart ? NetworkMode.VPN : settings.getMode();
+        if (!startAsForeground(null, mode)) {
             fail(getString(R.string.foreground_start_failed));
             return START_NOT_STICKY;
         }
 
-        submit(() -> launch(intent));
+        submit(() -> launchFromConfiguration(mode));
         return START_NOT_STICKY;
     }
 
@@ -139,16 +139,31 @@ public class ProxyService extends VpnService {
         }
     }
 
-    private void launch(Intent intent) {
+    private void launchFromConfiguration(NetworkMode mode) {
         try {
-            launchInternal(intent);
+            Connection connection = new ConnectionRepository(this).getSelected();
+            if (connection == null) {
+                fail(getString(R.string.no_connection_selected));
+                return;
+            }
+
+            VpnAppFilter filter = new AppRepository(this).createFilter();
+
+            if (proxyRunner != null && proxyRunner.isRunning()) {
+                Log.i(TAG, "proxy is already running");
+                return;
+            }
+
+            startAsForeground(connection, mode);
+
+            launch(connection, filter, mode);
         } catch (RuntimeException | LinkageError e) {
-            Log.e(TAG, "failed to start proxy", e);
+            Log.e(TAG, "failed to load configuration", e);
             fail(getString(R.string.foreground_start_failed));
         }
     }
 
-    private void launchInternal(Intent intent) {
+    private void launch(Connection connection, VpnAppFilter filter, NetworkMode mode) {
         if (stopping.get() || destroyed.get()) {
             return;
         }
@@ -163,20 +178,24 @@ public class ProxyService extends VpnService {
             return;
         }
 
-        Connection connection = getConnection(intent);
         String ticket = connection != null ? connection.getTicket() : null;
         if (ticket == null || ticket.isEmpty()) {
             fail("ticket missing");
             return;
         }
 
-        switch (settings.getMode()) {
-            case VPN -> startVpnMode(connection, ticket, getAppFilter(intent));
+        switch (mode) {
+            case VPN -> startVpnMode(connection, ticket, filter);
             case PROXY -> startProxyMode(ticket);
         }
     }
 
     private void startVpnMode(Connection connection, String ticket, VpnAppFilter filter) {
+        if (VpnService.prepare(this) != null) {
+            fail(getString(R.string.vpn_permission_missing));
+            return;
+        }
+
         if (tunNativeTool == null) {
             fail(tunStartupError != null ? tunStartupError : getString(R.string.foreground_start_failed));
             return;
@@ -247,7 +266,7 @@ public class ProxyService extends VpnService {
     }
 
     /**
-     * Stops native tools if a stop was requested while {@link #launchInternal(Intent)}
+     * Stops native tools if a stop was requested while {@link #launch(Connection, VpnAppFilter, NetworkMode)}
      * was still starting them. The worker is single threaded, so without this check a
      * queued shutdown could run before the tun fd/process state is published.
      */
@@ -257,22 +276,6 @@ public class ProxyService extends VpnService {
         }
         stopNativeTools();
         return true;
-    }
-
-    private static Connection getConnection(Intent intent) {
-        if (intent == null) {
-            return null;
-        }
-        return IntentCompat.getParcelableExtra(intent, Constant.EXTRA_CONNECTION, Connection.class);
-    }
-
-    private static VpnAppFilter getAppFilter(Intent intent) {
-        VpnAppFilter filter = intent == null ? null
-                : IntentCompat.getParcelableExtra(intent, Constant.EXTRA_APP_FILTER, VpnAppFilter.class);
-        if (filter == null || filter.getPackages() == null) {
-            return new VpnAppFilter(new String[0], FilterMode.BLACKLIST);
-        }
-        return filter;
     }
 
     private void shutdown() {
@@ -377,14 +380,14 @@ public class ProxyService extends VpnService {
         return tunNativeTool.start(configFile.getAbsolutePath(), tunFd.getFd());
     }
 
-    private boolean startAsForeground(Intent startIntent) {
+    private boolean startAsForeground(Connection connection, NetworkMode mode) {
         try {
             Intent openIntent = new Intent(this, MainActivity.class);
             openIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             PendingIntent pendingIntent = PendingIntent.getActivity(
                     this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE);
 
-            Notification notification = makeNotification(startIntent, pendingIntent);
+            Notification notification = makeNotification(connection, mode, pendingIntent);
 
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             return true;
@@ -395,15 +398,13 @@ public class ProxyService extends VpnService {
     }
 
     @NonNull
-    private Notification makeNotification(Intent rootIntent, PendingIntent pendingIntent) {
-        int titleType = isVpnMode() ? R.string.notification_title_vpn : R.string.notification_title_proxy;
+    private Notification makeNotification(Connection connection, NetworkMode mode, PendingIntent pendingIntent) {
+        int titleType = mode == NetworkMode.VPN
+                ? R.string.notification_title_vpn
+                : R.string.notification_title_proxy;
         String title = getString(titleType);
 
-        String connectionName = null;
-        Connection connection = getConnection(rootIntent);
-        if (connection != null) {
-            connectionName = connection.getName();
-        }
+        String connectionName = connection != null ? connection.getName() : null;
         String text = (connectionName == null || connectionName.isEmpty()) ? getString(R.string.no_name) : connectionName;
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -412,10 +413,6 @@ public class ProxyService extends VpnService {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(pendingIntent)
                 .build();
-    }
-
-    private boolean isVpnMode() {
-        return settings.getMode() == NetworkMode.VPN;
     }
 
     private void createNotificationChannel() {

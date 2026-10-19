@@ -35,7 +35,8 @@ public class AppRepository {
 
     public FilterMode getMode() {
         String enumStr = prefs.getString(Constant.APP_MODE, FilterMode.BLACKLIST.toString());
-        return FilterMode.fromString(enumStr);
+        FilterMode mode = FilterMode.fromString(enumStr);
+        return mode != null ? mode : FilterMode.BLACKLIST;
     }
 
     public void switchMode() {
@@ -44,5 +45,9 @@ public class AppRepository {
 
     public void setMode(FilterMode mode) {
         prefs.edit().putString(Constant.APP_MODE, mode.toString()).apply();
+    }
+
+    public VpnAppFilter createFilter() {
+        return new VpnAppFilter(getApps().toArray(new String[0]), getMode());
     }
 }
