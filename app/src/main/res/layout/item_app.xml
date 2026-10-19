@@ -10,7 +10,6 @@
     app:cardBackgroundColor="?attr/colorSecondaryContainer"
     app:cardElevation="0dp"
     android:layout_marginVertical="8dp"
-    android:layout_marginHorizontal="16dp"
     app:strokeWidth="0dp">
 
     <LinearLayout

@@ -54,7 +54,7 @@
             android:windowSoftInputMode="adjustResize" />
 
         <service
-            android:name=".proxy.ProxyService"
+            android:name=".ProxyService"
             android:exported="true"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse">

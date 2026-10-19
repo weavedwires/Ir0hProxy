@@ -42,7 +42,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center|start"
-                android:text="@string/bypass"
+                android:text="@string/blacklist"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textSize="20sp" />
 
@@ -56,7 +56,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center|end"
-                android:text="@string/proxying"
+                android:text="@string/whitelist"
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textSize="20sp" />
         </LinearLayout>

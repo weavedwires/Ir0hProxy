@@ -40,7 +40,7 @@ import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
 import su.weavedwires.iroh.vpn.model.VpnAppFilter;
-import su.weavedwires.iroh.vpn.proxy.ProxyService;
+import su.weavedwires.iroh.vpn.ProxyService;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
 import su.weavedwires.iroh.vpn.repository.AppRepository;
@@ -243,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
     private boolean isProxyRunning() {
         try {
             return ((IrohProxyApp) getApplication()).getProxyRunner().isRunning();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | LinkageError e) {
             return false;
         }
     }
