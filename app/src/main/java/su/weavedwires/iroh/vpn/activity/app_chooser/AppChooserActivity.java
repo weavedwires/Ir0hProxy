@@ -2,10 +2,8 @@ package su.weavedwires.iroh.vpn.activity.app_chooser;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.health.connect.datatypes.AppInfo;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -13,6 +11,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -26,9 +25,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import su.weavedwires.iroh.vpn.R;
-import su.weavedwires.iroh.vpn.model.AppData;
+import su.weavedwires.iroh.vpn.constant.FilterMode;
+import su.weavedwires.iroh.vpn.repository.AppRepository;
 
 public class AppChooserActivity extends AppCompatActivity {
+    private AppRepository repository;
     private AppAdapter adapter;
 
     @Override
@@ -43,21 +44,25 @@ public class AppChooserActivity extends AppCompatActivity {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
+        repository = new AppRepository(this);
 
-        List<AppData> apps = getApps();
+        SwitchCompat appModeStitch = findViewById(R.id.app_mode_switch);
+        appModeStitch.setChecked(FilterMode.WHITELIST.equals(repository.getMode()));
+        appModeStitch.setOnClickListener(v -> repository.switchMode());
 
         RecyclerView appList = findViewById(R.id.apps_list);
         appList.setLayoutManager(new LinearLayoutManager(this));
 
-        adapter = new AppAdapter();
-        adapter.submitList(apps);
+        adapter = new AppAdapter(repository::savePackages);
+        adapter.setSelectedPackages(repository.getApps());
+        adapter.submitList(getInstalledApps());
 
         appList.setAdapter(adapter);
     }
 
     @NonNull
     @SuppressLint("QueryPermissionsNeeded")
-    private List<AppData> getApps() {
+    private List<AppItem> getInstalledApps() {
         var pm = getPackageManager();
 
         Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -74,17 +79,8 @@ public class AppChooserActivity extends AppCompatActivity {
         }
 
         return resolveInfos.stream()
-                .map(info -> toAppData(info, pm))
-                .sorted(Comparator.comparing(AppData::getName))
+                .map(info -> AppItem.fromInfo(info, pm))
+                .sorted(Comparator.comparing(AppItem::getName))
                 .collect(Collectors.toList());
-    }
-
-    @NonNull
-    private static AppData toAppData(ResolveInfo info, PackageManager pm) {
-        return new AppData(
-                info.loadLabel(pm).toString(),
-                info.activityInfo.applicationInfo.packageName,
-                info.loadIcon(pm)
-        );
     }
 }

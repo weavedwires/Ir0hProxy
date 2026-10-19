@@ -7,7 +7,6 @@ import android.util.Log;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -15,7 +14,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,11 +22,11 @@ import java.util.TreeMap;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 
-public class ConnectionStore {
+public class ConnectionRepository {
     private final SharedPreferences prefs;
     private Map<Long, Connection> connections;
 
-    public ConnectionStore(Context context) {
+    public ConnectionRepository(Context context) {
         prefs = getPrefs(context);
     }
 
@@ -80,6 +78,10 @@ public class ConnectionStore {
     }
 
     public void setSelected(Connection connection) {
+        if (connection == null) {
+            prefs.edit().remove(Constant.SELECTED).apply();
+            return;
+        }
         prefs.edit().putString(Constant.SELECTED, String.valueOf(connection.getId())).apply();
     }
 
@@ -100,7 +102,7 @@ public class ConnectionStore {
                 map.put(connection.getId(), connection);
             }
         } catch (JSONException e) {
-            Log.w("ConnectionStore", "Can`t decode object", e);
+            Log.w("ConnectionRepository", "Can`t decode object", e);
         }
         return map;
     }

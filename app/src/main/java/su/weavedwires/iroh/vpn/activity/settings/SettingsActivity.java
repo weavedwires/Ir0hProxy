@@ -26,15 +26,15 @@ import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.activity.app_chooser.AppChooserActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.HostScope;
-import su.weavedwires.iroh.vpn.constant.Mode;
-import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.constant.NetworkMode;
+import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 
 public class SettingsActivity extends AppCompatActivity {
     private MaterialSwitch hostSwitch;
     private TextInputEditText portInput;
     private MaterialSwitch vpnSwitch;
     private LinearLayout dnsContainer;
-    private Settings settings;
+    private SettingsRepository settings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,7 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
             return insets;
         });
 
-        settings = new Settings(this);
+        settings = new SettingsRepository(this);
 
         hostSwitch = findViewById(R.id.host_switch);
         portInput = findViewById(R.id.port_input);
@@ -89,7 +89,7 @@ public class SettingsActivity extends AppCompatActivity {
         settings.setHostScope(hostSwitch.isChecked() ? HostScope.PUBLIC : HostScope.LOCAL);
         settings.setPort(parsePort());
         settings.setDnsServers(collectDns());
-        settings.setMode(vpnSwitch.isChecked() ? Mode.VPN : Mode.PROXY);
+        settings.setMode(vpnSwitch.isChecked() ? NetworkMode.VPN : NetworkMode.PROXY);
     }
 
     private int parsePort() {

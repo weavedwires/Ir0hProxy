@@ -38,7 +38,7 @@ Android app (pure Java, no Kotlin) that exposes a local SOCKS5 proxy whose upstr
 ## Data model / deep links
 
 - URI scheme `irohsocks://user:password@ticket#name`. `model/IrohSocksLink.java` is the parser/spec and is unit-tested; percent-encode components. Incoming `VIEW` intents and clipboard paste both go through it.
-- Connections persist encrypted via `ConnectionStore` (`EncryptedSharedPreferences`, with a plain-prefs fallback); app settings use plain `SharedPreferences` (`Settings`). Default mode is `VPN`; `PROXY` skips VpnService/tun2socks.
+- Connections persist encrypted via `ConnectionRepository` (`EncryptedSharedPreferences`, with a plain-prefs fallback); app settings use plain `SharedPreferences` (`SettingsRepository`). Default mode is `VPN`; `PROXY` skips VpnService/tun2socks.
 - Entry points: `activity/MainActivity` (launcher + link handler), `proxy/ProxyService` (VpnService foreground service), `IrohProxyApp` (owns `NativeTool` singletons).
 
 ## Conventions

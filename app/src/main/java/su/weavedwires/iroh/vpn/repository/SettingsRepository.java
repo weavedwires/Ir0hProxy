@@ -13,13 +13,13 @@ import java.util.List;
 
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.constant.HostScope;
-import su.weavedwires.iroh.vpn.constant.Mode;
+import su.weavedwires.iroh.vpn.constant.NetworkMode;
 
-public class Settings {
+public class SettingsRepository {
 
     private final SharedPreferences prefs;
 
-    public Settings(Context context) {
+    public SettingsRepository(Context context) {
         prefs = context.getSharedPreferences(Constant.SETTINGS_PREFS, Context.MODE_PRIVATE);
     }
 
@@ -99,24 +99,24 @@ public class Settings {
         }
     }
 
-    public Mode getMode() {
+    public NetworkMode getMode() {
         String stored = prefs.getString(Constant.MODE, null);
         if (stored == null) {
-            return Mode.VPN;
+            return NetworkMode.VPN;
         }
-        Mode mode = enumByName(Mode.class, stored);
+        NetworkMode mode = enumByName(NetworkMode.class, stored);
         if (mode != null) {
             return mode;
         }
-        return Constant.LEGACY_MODE_PROXY.equals(stored) ? Mode.PROXY : Mode.VPN;
+        return Constant.LEGACY_MODE_PROXY.equals(stored) ? NetworkMode.PROXY : NetworkMode.VPN;
     }
 
-    public void setMode(Mode mode) {
+    public void setMode(NetworkMode mode) {
         prefs.edit().putString(Constant.MODE, mode.name()).apply();
     }
 
     public boolean isVpnMode() {
-        return getMode() == Mode.VPN;
+        return getMode() == NetworkMode.VPN;
     }
 
     private static <T extends Enum<T>> T enumByName(Class<T> type, String name) {

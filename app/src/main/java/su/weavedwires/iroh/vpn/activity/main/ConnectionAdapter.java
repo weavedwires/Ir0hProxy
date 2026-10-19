@@ -12,30 +12,20 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import lombok.Getter;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.model.Connection;
 
 public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter.Holder> {
-    private final ButtonWatchdog watchdog = new ButtonWatchdog();
-    private final Consumer<Connection> onSelect;
-    private final Consumer<Connection> onEdit;
-
-    @Getter
-    private Connection selected;
-
-    public void setSelected(Connection selected) {
-        this.selected = selected;
-        notifyItemChanged(getCurrentList().indexOf(selected));
-    }
-
+    private static final String PAYLOAD_SELECTION = "selection";
+    private static final long NO_SELECTION = -1;
     private static final DiffUtil.ItemCallback<Connection> DIFF = new DiffUtil.ItemCallback<>() {
         @Override
         public boolean areItemsTheSame(@NonNull Connection oldItem, @NonNull Connection newItem) {
-            return Objects.equals(oldItem.getId(), newItem.getId());
+            return oldItem.getId() == newItem.getId();
         }
 
         @Override
@@ -47,10 +37,55 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
         }
     };
 
+    private final Consumer<Connection> onSelect;
+    private final Consumer<Connection> onEdit;
+
+    private long selectedId = NO_SELECTION;
+
     public ConnectionAdapter(Consumer<Connection> onSelect, Consumer<Connection> onEdit) {
         super(DIFF);
         this.onSelect = onSelect;
         this.onEdit = onEdit;
+    }
+
+    public void setSelected(Connection selected) {
+        long newId = selected == null ? NO_SELECTION : selected.getId();
+        if (newId == selectedId) {
+            return;
+        }
+        long oldId = selectedId;
+        selectedId = newId;
+        notifySelectionChanged(oldId);
+        notifySelectionChanged(newId);
+    }
+
+    public Connection getSelected() {
+        int position = indexOf(selectedId);
+        return position < 0 ? null : getCurrentList().get(position);
+    }
+
+    private void notifySelectionChanged(long id) {
+        int position = indexOf(id);
+        if (position >= 0) {
+            notifyItemChanged(position, PAYLOAD_SELECTION);
+        }
+    }
+
+    private int indexOf(long id) {
+        if (id == NO_SELECTION) {
+            return -1;
+        }
+        List<Connection> list = getCurrentList();
+        for (int position = 0; position < list.size(); position++) {
+            if (list.get(position).getId() == id) {
+                return position;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isSelected(Connection connection) {
+        return connection.getId() == selectedId;
     }
 
     @NonNull
@@ -67,6 +102,16 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
         holder.bind(connection);
     }
 
+    @Override
+    public void onBindViewHolder(@NonNull Holder holder, int position, @NonNull List<Object> payloads) {
+        if (payloads.contains(PAYLOAD_SELECTION)) {
+            Connection connection = getCurrentList().get(position);
+            holder.bind(connection);
+            return;
+        }
+        super.onBindViewHolder(holder, position, payloads);
+    }
+
     class Holder extends RecyclerView.ViewHolder {
         private final TextView title;
         private final RadioButton select;
@@ -80,37 +125,18 @@ public class ConnectionAdapter extends ListAdapter<Connection, ConnectionAdapter
             select = itemView.findViewById(R.id.connection_selected);
             edit = itemView.findViewById(R.id.connection_edit);
 
-            select.setOnClickListener(c -> {
-                watchdog.exchange(select);
-                onSelect.accept(current);
-            });
+            select.setOnClickListener(c -> onSelect.accept(current));
             edit.setOnClickListener(c -> onEdit.accept(current));
         }
 
         void bind(Connection connection) {
-            title.setText(connection.getName());
-
-            select.setChecked(Objects.equals(connection.getId(), getSelected().getId()));
-            if (select.isChecked()) {
-                watchdog.exchange(select);
-            }
-
             current = connection;
             title.setText(connection.getName());
+            bindSelection(connection);
         }
-    }
 
-    static class ButtonWatchdog {
-        RadioButton previousButton;
-
-        public synchronized void exchange(RadioButton newButton) {
-            if (previousButton != null) {
-                previousButton.setChecked(false);
-            }
-            previousButton = newButton;
-            if (newButton != null) {
-                newButton.setChecked(true);
-            }
+        void bindSelection(Connection connection) {
+            select.setChecked(isSelected(connection));
         }
     }
 }

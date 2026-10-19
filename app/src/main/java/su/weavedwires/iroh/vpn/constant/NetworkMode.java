@@ -1,6 +1,6 @@
 package su.weavedwires.iroh.vpn.constant;
 
-public enum Mode {
+public enum NetworkMode {
     VPN,
     PROXY
 }

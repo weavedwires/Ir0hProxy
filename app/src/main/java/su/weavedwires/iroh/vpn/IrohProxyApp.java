@@ -9,7 +9,7 @@ import java.io.File;
 
 import su.weavedwires.iroh.vpn.proxy.ProxyNativeTool;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
-import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 import su.weavedwires.iroh.vpn.tun.TunNativeTool;
 
 public class IrohProxyApp extends Application {
@@ -20,7 +20,7 @@ public class IrohProxyApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        new Settings(this).ensureDefaultDnsServers();
+        new SettingsRepository(this).ensureDefaultDnsServers();
     }
 
     public ProxyNativeTool getProxyRunner() {

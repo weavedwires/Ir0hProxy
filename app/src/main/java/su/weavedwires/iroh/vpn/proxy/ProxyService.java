@@ -1,5 +1,6 @@
 package su.weavedwires.iroh.vpn.proxy;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -27,22 +28,23 @@ import su.weavedwires.iroh.vpn.IrohProxyApp;
 import su.weavedwires.iroh.vpn.R;
 import su.weavedwires.iroh.vpn.activity.main.MainActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
-import su.weavedwires.iroh.vpn.constant.Mode;
+import su.weavedwires.iroh.vpn.constant.FilterMode;
+import su.weavedwires.iroh.vpn.constant.NetworkMode;
 import su.weavedwires.iroh.vpn.model.Connection;
-import su.weavedwires.iroh.vpn.nativ.error.NativeError;
-import su.weavedwires.iroh.vpn.nativ.error.NativeErrorListener;
-import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.model.VpnAppFilter;
+import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 import su.weavedwires.iroh.vpn.tun.TunNativeTool;
 import su.weavedwires.iroh.vpn.tun.TunNativeToolConfig;
 
-public class ProxyService extends VpnService implements NativeErrorListener {
+@SuppressLint("VpnServicePolicy")
+public class ProxyService extends VpnService {
     private static final String TAG = "ProxyService";
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "iroh_vpn";
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
 
-    private Settings settings;
+    private SettingsRepository settings;
     private ProxyNativeTool proxyRunner;
     private TunNativeTool tunNativeTool;
     private ProxyStateBus proxyStateBus;
@@ -53,9 +55,8 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        settings = new Settings(this);
+        settings = new SettingsRepository(this);
         proxyRunner = ((IrohProxyApp) getApplication()).getProxyRunner();
-        proxyRunner.addListener(this);
         tunNativeTool = ((IrohProxyApp) getApplication()).getTun2Socks();
         proxyStateBus = ((IrohProxyApp) getApplication()).getProxyStateStore();
     }
@@ -63,36 +64,27 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && Constant.ACTION_STOP.equals(intent.getAction())) {
-            worker.execute(this::stopProxy);
+            worker.execute(this::shutdown);
             return START_NOT_STICKY;
         }
         startAsForeground(intent);
-        worker.execute(() -> startProxy(intent));
+        worker.execute(() -> launch(intent));
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (proxyRunner != null) {
-            proxyRunner.removeListener(this);
-        }
         worker.shutdown();
     }
 
     @Override
     public void onRevoke() {
-        worker.execute(this::stopProxy);
+        worker.execute(this::shutdown);
         super.onRevoke();
     }
 
-    @Override
-    public void onNativeError(NativeError error) {
-        Log.e(TAG, error.toString());
-        worker.execute(() -> fail(error.toString()));
-    }
-
-    private void startProxy(Intent intent) {
+    private void launch(Intent intent) {
         if (proxyRunner.isRunning()) {
             return;
         }
@@ -116,27 +108,33 @@ public class ProxyService extends VpnService implements NativeErrorListener {
             return;
         }
 
-        if (vpnMode) {
-            if (!establishVpn()) {
-                fail("failed to establish VPN");
-                return;
+        try {
+            if (vpnMode) {
+                if (!establishVpn(getAppFilter(intent))) {
+                    fail("failed to establish VPN");
+                    return;
+                }
+                if (!startTun2Socks(connection.getUser(), connection.getPassword())) {
+                    fail("failed to start tun2socks");
+                    return;
+                }
             }
-            if (!startTun2Socks(connection.getUser(), connection.getPassword())) {
-                fail("failed to start tun2socks");
-                return;
-            }
+        } catch (Exception e) {
+            fail("failed to init vpn");
         }
 
         proxyStateBus.notifyStarted();
     }
 
     private static Connection getConnection(Intent intent) {
-        return intent == null
-                ? null
-                : IntentCompat.getParcelableExtra(intent, Constant.EXTRA_CONNECTION, Connection.class);
+        return IntentCompat.getParcelableExtra(intent, Constant.EXTRA_CONNECTION, Connection.class);
     }
 
-    private void stopProxy() {
+    private static VpnAppFilter getAppFilter(Intent intent) {
+        return IntentCompat.getParcelableExtra(intent, Constant.EXTRA_APP_FILTER, VpnAppFilter.class);
+    }
+
+    private void shutdown() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         stopNativeTools();
         proxyStateBus.notifyStopped();
@@ -168,20 +166,26 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     }
 
     @SuppressWarnings("DataFlowIssue")
-    private boolean establishVpn() {
-        Builder builder = new Builder();
-        builder.setBlocking(false);
-        builder.setMtu(Constant.TUN_MTU);
-        builder.addAddress(Constant.TUN_IPV4_ADDRESS.getHostAddress(), Constant.TUN_IPV4_PREFIX);
-        builder.addRoute("0.0.0.0", 0);
-        builder.addDnsServer(Constant.DNS_SERVER.getHostAddress());
-        builder.setSession("iroh-vpn");
-        try {
-            builder.addDisallowedApplication(getPackageName());
-        } catch (Exception ignored) {
-        }
+    private boolean establishVpn(VpnAppFilter filter) {
+        Builder builder = new Builder()
+                .setBlocking(false)
+                .setMtu(Constant.TUN_MTU)
+                .addAddress(Constant.TUN_IPV4_ADDRESS.getHostAddress(), Constant.TUN_IPV4_PREFIX)
+                .addRoute("0.0.0.0", 0)
+                .addDnsServer(Constant.DNS_SERVER.getHostAddress())
+                .setSession("iroh-vpn");
+
+        addSelfToExceptions(filter, builder);
+        filter.apply(builder);
+
         tunFd = builder.establish();
         return tunFd != null;
+    }
+
+    private void addSelfToExceptions(VpnAppFilter userFilter, Builder builder) {
+        if (!userFilter.isTriggersWhitelist()) {
+            new VpnAppFilter(new String[]{getPackageName()}, FilterMode.BLACKLIST).apply(builder);
+        }
     }
 
     private boolean startTun2Socks(String username, String password) {
@@ -232,7 +236,7 @@ public class ProxyService extends VpnService implements NativeErrorListener {
     }
 
     private boolean isVpnMode() {
-        return settings.getMode() == Mode.VPN;
+        return settings.getMode() == NetworkMode.VPN;
     }
 
     private void createNotificationChannel() {

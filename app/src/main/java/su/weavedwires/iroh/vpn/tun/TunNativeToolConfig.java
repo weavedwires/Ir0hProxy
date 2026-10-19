@@ -36,25 +36,24 @@ public class TunNativeToolConfig {
 
     public String toConfigString() {
         StringBuilder conf = new StringBuilder();
-        conf.append("misc:\n");
-        conf.append("  task-stack-size: ").append(taskStackSize).append("\n");
-        conf.append("tunnel:\n");
-        conf.append("  mtu: ").append(mtu).append("\n");
-        conf.append("  icmp: 'reply'\n");
-        conf.append("socks5:\n");
-        conf.append("  port: ").append(socks5.getPort()).append("\n");
-        conf.append("  address: '").append(socks5.getAddress().getHostAddress()).append("'\n");
-        conf.append("  udp: 'udp'\n");
+        conf.append("misc:").append(System.lineSeparator());
+        conf.append("  task-stack-size: ").append(taskStackSize).append(System.lineSeparator());
+        conf.append("tunnel:").append(System.lineSeparator());
+        conf.append("  mtu: ").append(mtu).append(System.lineSeparator());
+        conf.append("socks5:").append(System.lineSeparator());
+        conf.append("  port: ").append(socks5.getPort()).append(System.lineSeparator());
+        conf.append("  address: '").append(socks5.getAddress().getHostAddress()).append("'").append(System.lineSeparator());
+        conf.append("  udp: 'udp'").append(System.lineSeparator());
         if (hasCredentials()) {
-            conf.append("  username: '").append(username).append("'\n");
-            conf.append("  password: '").append(password).append("'\n");
+            conf.append("  username: '").append(username).append("'").append(System.lineSeparator());
+            conf.append("  password: '").append(password).append("'").append(System.lineSeparator());
         }
-        conf.append("mapdns:\n");
-        conf.append("  address: ").append(mapDns.getAddress().getHostAddress()).append("\n");
-        conf.append("  port: ").append(mapDns.getPort()).append("\n");
-        conf.append("  network: ").append(mapDnsNetwork.getHostAddress()).append("\n");
-        conf.append("  netmask: ").append(mapDnsNetmask.getHostAddress()).append("\n");
-        conf.append("  cache-size: ").append(mapDnsCacheSize).append("\n");
+        conf.append("mapdns:").append(System.lineSeparator());
+        conf.append("  address: ").append(mapDns.getAddress().getHostAddress()).append(System.lineSeparator());
+        conf.append("  port: ").append(mapDns.getPort()).append(System.lineSeparator());
+        conf.append("  network: ").append(mapDnsNetwork.getHostAddress()).append(System.lineSeparator());
+        conf.append("  netmask: ").append(mapDnsNetmask.getHostAddress()).append(System.lineSeparator());
+        conf.append("  cache-size: ").append(mapDnsCacheSize).append(System.lineSeparator());
         return conf.toString();
     }
 

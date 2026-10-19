@@ -39,16 +39,18 @@ import su.weavedwires.iroh.vpn.activity.settings.SettingsActivity;
 import su.weavedwires.iroh.vpn.constant.Constant;
 import su.weavedwires.iroh.vpn.model.Connection;
 import su.weavedwires.iroh.vpn.model.IrohSocksLink;
+import su.weavedwires.iroh.vpn.model.VpnAppFilter;
 import su.weavedwires.iroh.vpn.proxy.ProxyService;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateBus;
 import su.weavedwires.iroh.vpn.proxy.ProxyStateListener;
-import su.weavedwires.iroh.vpn.repository.ConnectionStore;
-import su.weavedwires.iroh.vpn.repository.Settings;
+import su.weavedwires.iroh.vpn.repository.AppRepository;
+import su.weavedwires.iroh.vpn.repository.ConnectionRepository;
+import su.weavedwires.iroh.vpn.repository.SettingsRepository;
 
 public class MainActivity extends AppCompatActivity implements ProxyStateListener {
-    private Settings settings;
-    private ConnectionStore connectionStore;
-    private ConnectionAdapter connectionListAdapter;
+    private SettingsRepository settings;
+    private ConnectionRepository repository;
+    private ConnectionAdapter adapter;
     private FloatingActionButton enableButton;
     private String lastShownError;
 
@@ -82,21 +84,21 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
             return insets;
         });
 
-        settings = new Settings(this);
-        connectionStore = new ConnectionStore(this);
+        settings = new SettingsRepository(this);
+        repository = new ConnectionRepository(this);
 
         RecyclerView connectionList = findViewById(R.id.connection_list);
 
-        connectionListAdapter = new ConnectionAdapter(
-                this::saveSelected,
+        adapter = new ConnectionAdapter(
+                this::selectConnection,
                 this::callConnectionEditor
         );
-        connectionListAdapter.setSelected(connectionStore.getSelected());
+        adapter.setSelected(repository.getSelected());
 
         connectionList.setLayoutManager(new LinearLayoutManager(this));
-        connectionList.setAdapter(connectionListAdapter);
+        connectionList.setAdapter(adapter);
 
-        connectionListAdapter.submitList(connectionStore.getList());
+        adapter.submitList(repository.getList());
 
         enableButton = findViewById(R.id.enable_button);
         enableButton.setOnClickListener(v -> toggleProxy());
@@ -110,7 +112,6 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
             @Override
             public void onStart(@NonNull LifecycleOwner owner) {
                 proxyStateBus.addListener(MainActivity.this);
-                syncState();
             }
 
             @Override
@@ -118,6 +119,12 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
                 proxyStateBus.removeListener(MainActivity.this);
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        syncState();
+        super.onStart();
     }
 
     @Override
@@ -179,12 +186,12 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
     }
 
     private void addConnection(Connection newConnection) {
-        boolean firstConnection = connectionStore.isEmpty();
-        connectionStore.add(newConnection);
+        boolean firstConnection = repository.isEmpty();
+        repository.add(newConnection);
         if (firstConnection) {
             selectConnection(newConnection);
         }
-        connectionListAdapter.submitList(connectionStore.getList());
+        adapter.submitList(repository.getList());
     }
 
     private void editConnection(Intent data) {
@@ -194,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
         }
         if (data.getBooleanExtra(Constant.EXTRA_DELETED, false)) {
             deleteConnection(connection.getId());
-        } else if (connectionStore.contains(connection.getId())) {
+        } else if (repository.contains(connection.getId())) {
             updateConnection(connection);
         } else {
             addConnection(connection);
@@ -202,27 +209,27 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
     }
 
     private void updateConnection(Connection connection) {
-        connectionStore.update(connection.getId(), connection);
-        connectionListAdapter.submitList(connectionStore.getList());
+        repository.update(connection.getId(), connection);
+        adapter.submitList(repository.getList());
     }
 
     private void deleteConnection(long id) {
-        connectionStore.delete(id);
-        if (connectionStore.isEmpty()) {
+        repository.delete(id);
+        if (repository.isEmpty()) {
             selectConnection(null);
         } else {
-            selectConnection(connectionStore.getList().get(0));
+            selectConnection(repository.getList().get(0));
         }
-        connectionListAdapter.submitList(connectionStore.getList());
+        adapter.submitList(repository.getList());
     }
 
     private void selectConnection(Connection connection) {
-        connectionListAdapter.setSelected(connection);
+        adapter.setSelected(connection);
         saveSelected(connection);
     }
 
     private void saveSelected(Connection connection) {
-        connectionStore.setSelected(connection);
+        repository.setSelected(connection);
     }
 
     private void toggleProxy() {
@@ -235,18 +242,14 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
 
     private boolean isProxyRunning() {
         try {
-            IrohProxyApp app = (IrohProxyApp) getApplication();
-            if (!app.getProxyRunner().isRunning()) {
-                return false;
-            }
-            return !settings.isVpnMode() || app.getTun2Socks().isRunning();
+            return ((IrohProxyApp) getApplication()).getProxyRunner().isRunning();
         } catch (RuntimeException e) {
             return false;
         }
     }
 
     private void startProxy() {
-        Connection connection = connectionListAdapter.getSelected();
+        Connection connection = adapter.getSelected();
         if (connection == null) {
             Snackbar.make(findViewById(R.id.main), R.string.no_connection_selected, Snackbar.LENGTH_SHORT).show();
             return;
@@ -269,9 +272,15 @@ public class MainActivity extends AppCompatActivity implements ProxyStateListene
 
         Intent intent = new Intent(this, ProxyService.class)
                 .setAction(Constant.ACTION_START)
-                .putExtra(Constant.EXTRA_CONNECTION, connection);
+                .putExtra(Constant.EXTRA_CONNECTION, connection)
+                .putExtra(Constant.EXTRA_APP_FILTER, createFilter());
 
         ContextCompat.startForegroundService(this, intent);
+    }
+
+    private VpnAppFilter createFilter() {
+        var repo = new AppRepository(this);
+        return new VpnAppFilter(repo.getApps().toArray(new String[0]), repo.getMode());
     }
 
     private void stopProxy() {
