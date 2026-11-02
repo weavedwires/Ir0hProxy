@@ -1,21 +1,11 @@
 name: android
 
-# APK build. The native binaries are gitignored, so CI recreates them from scratch:
-#   libhev-socks5-tunnel.so  -> ndk-build of the upstream heiher/hev-socks5-tunnel
-#   libdumbpipe.so           -> prebuilt release asset of weavedwires/dumbpipe-over-chatmail
-# Signing secrets are optional: without them CI builds a debug APK only.
-
 on:
   push:
     branches: [master]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
-    inputs:
-      dumbpipe_source:
-        description: "Собрать dumbpipe из исходников вместо готового ассета"
-        type: boolean
-        default: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -25,46 +15,28 @@ permissions:
   contents: read
 
 env:
-  DUMBPIPE_REPO: weavedwires/dumbpipe-over-chatmail
-  DUMBPIPE_VERSION: v0.40.1
   HEV_REPO: heiher/hev-socks5-tunnel
   HEV_VERSION: 2.19.3
+  DUMBPIPE_REPO: weavedwires/dumbpipe-over-chatmail
+  DUMBPIPE_VERSION: v0.40.1
   NDK_VERSION: r27d
-  # JNI class name is baked into the .so by ndk-build and must match
-  # app/src/main/java/su/weavedwires/iroh/vpn/tun/TunNativeTool.java
   JNI_PKG: su/weavedwires/iroh/vpn/tun
   JNI_CLS: TunNativeTool
 
 jobs:
-  build:
-    name: build apk
+  hev:
+    name: tun2socks из исходников
     runs-on: ubuntu-latest
-    env:
-      # `secrets` is not allowed inside `if:`, so resolve it into an env flag first.
-      SIGNING_AVAILABLE: ${{ secrets.KEYSTORE_BASE64 != '' }}
-      DUMBPIPE_SOURCE: ${{ inputs.dumbpipe_source && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Install SDK platform
-        run: sdkmanager --install "platforms;android-37.0" "build-tools;37.0.0"
-
-      - name: Set up Android NDK
+      - name: NDK ${{ env.NDK_VERSION }}
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.NDK_VERSION }}
 
-      - name: Build libhev-socks5-tunnel.so
+      - name: Собрать libhev-socks5-tunnel.so для четырёх ABI
         env:
           NDK: ${{ steps.ndk.outputs.ndk-path }}
         run: |
@@ -72,7 +44,7 @@ jobs:
           src="$RUNNER_TEMP/hev-socks5-tunnel"
           git clone --quiet --depth 1 --branch "$HEV_VERSION" --recursive \
             "https://github.com/$HEV_REPO" "$src"
-          mkdir -p "$RUNNER_TEMP/hev-obj" "$RUNNER_TEMP/hev-libs"
+          mkdir -p "$RUNNER_TEMP/obj" "$RUNNER_TEMP/libs"
           (
             cd "$src"
             "$NDK/ndk-build" \
@@ -82,92 +54,140 @@ jobs:
               APP_ABI="arm64-v8a armeabi-v7a x86 x86_64" \
               APP_PLATFORM=android-23 \
               APP_CFLAGS="-O3 -DPKGNAME=$JNI_PKG -DCLSNAME=$JNI_CLS" \
-              NDK_OUT="$RUNNER_TEMP/hev-obj" \
-              NDK_LIBS_OUT="$RUNNER_TEMP/hev-libs"
+              NDK_OUT="$RUNNER_TEMP/obj" \
+              NDK_LIBS_OUT="$RUNNER_TEMP/libs"
           )
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            install -D -m 0644 "$RUNNER_TEMP/hev-libs/$abi/libhev-socks5-tunnel.so" \
-              "app/src/main/jniLibs/$abi/libhev-socks5-tunnel.so"
+            install -D -m 0644 "$RUNNER_TEMP/libs/$abi/libhev-socks5-tunnel.so" \
+              "dist/$abi/libhev-socks5-tunnel.so"
           done
-          find app/src/main/jniLibs -name '*.so' -printf '%p %s bytes\n' | sort
 
-      - name: Set up Rust toolchain
-        if: env.DUMBPIPE_SOURCE == 'true'
+      - name: Отдать libhev-socks5-tunnel.so
+        uses: actions/upload-artifact@v7
+        with:
+          name: libhev-socks5-tunnel
+          path: dist
+          if-no-files-found: error
+
+  dumbpipe:
+    name: dumbpipe из исходников (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux-android
+            abi: arm64-v8a
+            clang: aarch64-linux-android24-clang
+          - target: armv7-linux-androideabi
+            abi: armeabi-v7a
+            clang: armv7a-linux-androideabi24-clang
+          - target: x86_64-linux-android
+            abi: x86_64
+            clang: x86_64-linux-android24-clang
+          - target: i686-linux-android
+            abi: x86
+            clang: i686-linux-android24-clang
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Rust с таргетом ${{ matrix.target }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+          targets: ${{ matrix.target }}
 
-      - name: Build libdumbpipe.so from source
-        if: env.DUMBPIPE_SOURCE == 'true'
+      - name: NDK ${{ env.NDK_VERSION }}
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+
+      - name: Собрать libdumbpipe.so для ${{ matrix.abi }}
         env:
           NDK_BIN: ${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin
-          ANDROID_API: 24
+          TARGET: ${{ matrix.target }}
+          CLANG: ${{ matrix.clang }}
         run: |
           set -euo pipefail
           src="$RUNNER_TEMP/dumbpipe"
           git clone --quiet --depth 1 --branch "$DUMBPIPE_VERSION" \
             "https://github.com/$DUMBPIPE_REPO" "$src"
-          for pair in \
-            aarch64-linux-android:arm64-v8a \
-            armv7-linux-androideabi:armeabi-v7a \
-            x86_64-linux-android:x86_64 \
-            i686-linux-android:x86; do
-            target="${pair%%:*}"
-            abi="${pair##*:}"
-            # cargo wants the uppercase linker var, cc-rs the lowercase compiler var
-            cc_key="${target//-/_}"
-            linker_key="${cc_key^^}"
-            case "$target" in
-              armv7-linux-androideabi) clang="armv7a-linux-androideabi${ANDROID_API}-clang" ;;
-              *)                       clang="${target}${ANDROID_API}-clang" ;;
-            esac
-            export "CARGO_TARGET_${linker_key}_LINKER=$NDK_BIN/$clang"
-            export "CC_${cc_key}=$NDK_BIN/$clang"
-            export "AR_${cc_key}=$NDK_BIN/llvm-ar"
-            ( cd "$src" && cargo build --locked --release --target "$target" )
-            install -D -m 0755 "$src/target/$target/release/dumbpipe" \
-              "app/src/main/jniLibs/$abi/libdumbpipe.so"
-          done
-          find app/src/main/jniLibs -name 'libdumbpipe.so' -printf '%p %s bytes\n' | sort
+          cc_key="${TARGET//-/_}"
+          export "CARGO_TARGET_${cc_key^^}_LINKER=$NDK_BIN/$CLANG"
+          export "CC_${cc_key}=$NDK_BIN/$CLANG"
+          export "AR_${cc_key}=$NDK_BIN/llvm-ar"
+          cd "$src"
+          cargo build --locked --release --target "$TARGET"
+          install -D -m 0755 "target/$TARGET/release/dumbpipe" "$GITHUB_WORKSPACE/dist/libdumbpipe.so"
 
-      - name: Fetch libdumbpipe.so
-        if: env.DUMBPIPE_SOURCE != 'true'
+      - name: Отдать libdumbpipe.so для ${{ matrix.abi }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: libdumbpipe-${{ matrix.abi }}
+          path: dist/libdumbpipe.so
+          if-no-files-found: error
+
+  app:
+    name: APK
+    needs: [hev, dumbpipe]
+    runs-on: ubuntu-latest
+    env:
+      SIGNING_AVAILABLE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Забрать libhev-socks5-tunnel.so
+        uses: actions/download-artifact@v8
+        with:
+          name: libhev-socks5-tunnel
+          path: natives/hev
+
+      - name: Забрать libdumbpipe.so
+        uses: actions/download-artifact@v8
+        with:
+          pattern: libdumbpipe-*
+          path: natives/dumbpipe
+
+      - name: Разложить .so по jniLibs
         run: |
           set -euo pipefail
-          base="https://github.com/$DUMBPIPE_REPO/releases/download/$DUMBPIPE_VERSION"
-          curl -fsSL -o "$RUNNER_TEMP/checksums.txt" "$base/checksums.txt"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            asset="dumbpipe-$DUMBPIPE_VERSION-dumbpipe-android-$abi"
-            curl -fsSL -o "$RUNNER_TEMP/$asset" "$base/$asset"
-            # checksums.txt separates the hash with three spaces, which `sha256sum -c` misparses
-            expected="$(awk -v a="$asset" '$NF == a { print $1 }' "$RUNNER_TEMP/checksums.txt")"
-            actual="$(sha256sum "$RUNNER_TEMP/$asset" | cut -d' ' -f1)"
-            if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
-              echo "::error::checksum mismatch for $asset (expected '$expected', got '$actual')" >&2
-              exit 1
-            fi
-            install -D -m 0755 "$RUNNER_TEMP/$asset" "app/src/main/jniLibs/$abi/libdumbpipe.so"
+            install -D -m 0644 "natives/hev/$abi/libhev-socks5-tunnel.so" \
+              "app/src/main/jniLibs/$abi/libhev-socks5-tunnel.so"
+            install -D -m 0755 "natives/dumbpipe/libdumbpipe-$abi/libdumbpipe.so" \
+              "app/src/main/jniLibs/$abi/libdumbpipe.so"
           done
-          find app/src/main/jniLibs -name 'libdumbpipe.so' -printf '%p %s bytes\n' | sort
 
-      - name: Set up Gradle
+      - name: JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Android SDK и платформа android-37.0
+        uses: android-actions/setup-android@v4
+
+      - name: Установить platforms;android-37.0 и build-tools;37.0.0
+        run: sdkmanager --install "platforms;android-37.0" "build-tools;37.0.0"
+
+      - name: Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Unit tests
+      - name: Юнит-тесты
         run: ./gradlew --no-daemon :app:testDebugUnitTest
 
-      - name: Assemble debug APK
+      - name: Собрать debug APK
         run: ./gradlew --no-daemon :app:assembleDebug
 
-      - name: Upload debug APK
+      - name: Отдать debug APK
         uses: actions/upload-artifact@v7
         with:
           name: apk-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Prepare signing material
+      - name: Подготовить ключ подписи
         if: env.SIGNING_AVAILABLE == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -185,18 +205,18 @@ jobs:
           } > keystore.properties
           chmod 600 release.jks keystore.properties
 
-      - name: Assemble release APK
+      - name: Собрать подписанный release APK
         if: env.SIGNING_AVAILABLE == 'true'
         run: ./gradlew --no-daemon :app:assembleRelease
 
-      - name: Verify APK signature
+      - name: Проверить подпись release APK
         if: env.SIGNING_AVAILABLE == 'true'
         run: |
           set -euo pipefail
           apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk"
 
-      - name: Upload release APK
+      - name: Отдать release APK
         if: env.SIGNING_AVAILABLE == 'true'
         uses: actions/upload-artifact@v7
         with:
@@ -204,26 +224,22 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-  release:
-    name: publish release
+  publish:
+    name: GitHub Release
+    needs: app
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Забрать собранные APK
+        uses: actions/download-artifact@v8
         with:
-          name: apk-release
+          pattern: apk-*
           path: dist
+          merge-multiple: true
 
-      - name: Create GitHub release
+      - name: Опубликовать релиз ${{ github.ref_name }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          apk="$(find dist -name '*.apk' -print -quit)"
-          gh release create "$GITHUB_REF_NAME" "$apk" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
