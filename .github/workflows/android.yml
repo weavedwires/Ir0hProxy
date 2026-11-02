@@ -137,6 +137,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Требовать ключ подписи для тега
+        if: startsWith(github.ref, 'refs/tags/v') && env.SIGNING_AVAILABLE != 'true'
+        run: |
+          echo "::error::релизный тег требует подписанного APK: задайте KEYSTORE_BASE64, KEYSTORE_STORE_PASSWORD, KEYSTORE_KEY_ALIAS, KEYSTORE_KEY_PASSWORD"
+          exit 1
+
       - name: Забрать libhev-socks5-tunnel.so
         uses: actions/download-artifact@v8
         with:
@@ -232,12 +238,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Забрать собранные APK
+      - name: Забрать подписанный APK
         uses: actions/download-artifact@v8
         with:
-          pattern: apk-*
+          name: apk-release
           path: dist
-          merge-multiple: true
 
       - name: Опубликовать релиз ${{ github.ref_name }}
         env:
