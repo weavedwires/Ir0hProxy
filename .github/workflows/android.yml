@@ -11,6 +11,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      dumbpipe_source:
+        description: "Собрать dumbpipe из исходников вместо готового ассета"
+        type: boolean
+        default: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -37,6 +42,7 @@ jobs:
     env:
       # `secrets` is not allowed inside `if:`, so resolve it into an env flag first.
       SIGNING_AVAILABLE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      DUMBPIPE_SOURCE: ${{ inputs.dumbpipe_source && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -85,7 +91,48 @@ jobs:
           done
           find app/src/main/jniLibs -name '*.so' -printf '%p %s bytes\n' | sort
 
+      - name: Set up Rust toolchain
+        if: env.DUMBPIPE_SOURCE == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Build libdumbpipe.so from source
+        if: env.DUMBPIPE_SOURCE == 'true'
+        env:
+          NDK_BIN: ${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin
+          ANDROID_API: 24
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/dumbpipe"
+          git clone --quiet --depth 1 --branch "$DUMBPIPE_VERSION" \
+            "https://github.com/$DUMBPIPE_REPO" "$src"
+          for pair in \
+            aarch64-linux-android:arm64-v8a \
+            armv7-linux-androideabi:armeabi-v7a \
+            x86_64-linux-android:x86_64 \
+            i686-linux-android:x86; do
+            target="${pair%%:*}"
+            abi="${pair##*:}"
+            # cargo wants the uppercase linker var, cc-rs the lowercase compiler var
+            cc_key="${target//-/_}"
+            linker_key="${cc_key^^}"
+            case "$target" in
+              armv7-linux-androideabi) clang="armv7a-linux-androideabi${ANDROID_API}-clang" ;;
+              *)                       clang="${target}${ANDROID_API}-clang" ;;
+            esac
+            export "CARGO_TARGET_${linker_key}_LINKER=$NDK_BIN/$clang"
+            export "CC_${cc_key}=$NDK_BIN/$clang"
+            export "AR_${cc_key}=$NDK_BIN/llvm-ar"
+            ( cd "$src" && cargo build --locked --release --target "$target" )
+            install -D -m 0755 "$src/target/$target/release/dumbpipe" \
+              "app/src/main/jniLibs/$abi/libdumbpipe.so"
+          done
+          find app/src/main/jniLibs -name 'libdumbpipe.so' -printf '%p %s bytes\n' | sort
+
       - name: Fetch libdumbpipe.so
+        if: env.DUMBPIPE_SOURCE != 'true'
         run: |
           set -euo pipefail
           base="https://github.com/$DUMBPIPE_REPO/releases/download/$DUMBPIPE_VERSION"
@@ -141,6 +188,13 @@ jobs:
       - name: Assemble release APK
         if: env.SIGNING_AVAILABLE == 'true'
         run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Verify APK signature
+        if: env.SIGNING_AVAILABLE == 'true'
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk"
 
       - name: Upload release APK
         if: env.SIGNING_AVAILABLE == 'true'
